@@ -22,6 +22,12 @@ async function callAi(
   settings: AiSettings,
   messages: ApiMessage[],
 ): Promise<string> {
+  // Gemini is called straight from the browser so the app works on a
+  // static host (e.g. GitHub Pages) with no backend — ideal for mobile.
+  if (settings.provider === 'gemini') {
+    return callGeminiDirect(settings, messages)
+  }
+  // Ollama needs the local Express proxy (development only).
   const response = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -30,13 +36,45 @@ async function callAi(
       messages,
       ollamaBaseUrl: settings.ollamaBaseUrl,
       ollamaModel: settings.ollamaModel,
-      geminiApiKey: settings.geminiApiKey,
-      geminiModel: settings.geminiModel,
     }),
   })
   const data = (await response.json()) as { content?: string; error?: string }
   if (!response.ok) throw new Error(data.error || '请求失败')
   return data.content ?? ''
+}
+
+async function callGeminiDirect(
+  settings: AiSettings,
+  messages: ApiMessage[],
+): Promise<string> {
+  if (!settings.geminiApiKey) {
+    throw new Error('请先在「我的 → AI 设置」填入 Gemini API Key')
+  }
+  const model = settings.geminiModel || 'gemini-2.0-flash'
+  const system = messages.find((m) => m.role === 'system')
+  const contents = messages
+    .filter((m) => m.role !== 'system')
+    .map((m) => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }],
+    }))
+  const body: Record<string, unknown> = { contents }
+  if (system) body.systemInstruction = { parts: [{ text: system.content }] }
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${settings.geminiApiKey}`
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const data = (await response.json()) as {
+    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>
+    error?: { message?: string }
+  }
+  if (!response.ok) {
+    throw new Error(`Gemini 错误：${data.error?.message ?? response.status}`)
+  }
+  return data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
 }
 
 function firstJson<T>(raw: string): T | null {

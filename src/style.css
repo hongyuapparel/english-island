@@ -50,7 +50,7 @@ code {
 .app-shell {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100dvh;
   max-width: 1200px;
   margin: 0 auto;
 }
@@ -1728,7 +1728,7 @@ input:focus, select:focus, textarea:focus {
 
 /* --- Map --- */
 .island-map {
-  position: relative; width: 100%; aspect-ratio: 4 / 3; max-height: 56vh;
+  position: relative; width: 100%; aspect-ratio: 4 / 3; max-height: 52dvh;
   border-radius: 22px; overflow: hidden; margin-bottom: 1rem;
   background:
     radial-gradient(circle at 50% 8%, #fff6da 0%, transparent 45%),
@@ -1803,7 +1803,7 @@ input:focus, select:focus, textarea:focus {
 .scene-bar { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.3rem 0 0.6rem; }
 .scene-name { font-family: var(--font-display); font-size: 0.95rem; }
 .scene-stage {
-  height: calc(100vh - 240px); min-height: 280px; overflow-y: auto;
+  height: 56dvh; min-height: 300px; overflow-y: auto;
   background: linear-gradient(180deg, #fff9f0, #fff5ea); border: 1px solid var(--color-border);
   border-radius: 18px; padding: 1rem 0.9rem; display: flex; flex-direction: column; gap: 0.7rem;
 }

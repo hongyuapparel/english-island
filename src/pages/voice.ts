@@ -1,4 +1,5 @@
 import type { ChatMessage, SessionSummary } from '../types'
+import { FOX_ICON } from '../asset'
 import { AGENT_NAME } from '../types'
 import { storage } from '../storage'
 import {
@@ -56,7 +57,7 @@ export function renderChat(): HTMLElement {
 
     el.innerHTML = `
       <div class="voice-header">
-        <img src="/fox.svg" alt="${AGENT_NAME}" class="voice-mascot ${voice.isListening ? 'listening' : ''}" />
+        <img src="${FOX_ICON}" alt="${AGENT_NAME}" class="voice-mascot ${voice.isListening ? 'listening' : ''}" />
         <h1>和 ${AGENT_NAME} 对话</h1>
         <p class="voice-status" id="status">${esc(statusText)}</p>
         ${interimText ? `<p class="voice-interim">${esc(interimText)}</p>` : ''}
@@ -79,7 +80,7 @@ export function renderChat(): HTMLElement {
         ${
           messages.length === 0
             ? `<div class="voice-empty">
-                <img src="/fox.svg" alt="" class="empty-fox" />
+                <img src="${FOX_ICON}" alt="" class="empty-fox" />
                 <p>嗨，我是 ${AGENT_NAME} 🦊</p>
                 <p class="hint">说点什么吧 — 中文英文都行，我会陪你聊</p>
                 <p class="hint">聊完点「结束并总结」，我帮你温柔复盘</p>
@@ -88,7 +89,7 @@ export function renderChat(): HTMLElement {
         }
         ${
           isLoading
-            ? `<div class="voice-loading"><img src="/fox.svg" alt="" /> ${AGENT_NAME} 在想…</div>`
+            ? `<div class="voice-loading"><img src="${FOX_ICON}" alt="" /> ${AGENT_NAME} 在想…</div>`
             : ''
         }
       </div>
@@ -124,7 +125,7 @@ export function renderChat(): HTMLElement {
   function renderMsg(m: ChatMessage): string {
     return `
       <div class="voice-msg ${m.role}">
-        ${m.role === 'assistant' ? `<img src="/fox.svg" alt="" class="msg-av" />` : ''}
+        ${m.role === 'assistant' ? `<img src="${FOX_ICON}" alt="" class="msg-av" />` : ''}
         <div class="msg-bubble">
           <p>${formatContent(m.content)}</p>
           ${m.role === 'assistant' ? `<button class="replay-btn" data-text="${escAttr(m.content)}" title="再听一遍">🔊</button>` : ''}
@@ -303,7 +304,7 @@ export function renderChat(): HTMLElement {
     overlay.className = 'summary-overlay'
     overlay.innerHTML = `
       <div class="summary-card">
-        <div class="summary-head"><img src="/fox.svg" alt="" /><h2>今日小结</h2></div>
+        <div class="summary-head"><img src="${FOX_ICON}" alt="" /><h2>今日小结</h2></div>
         ${s.encouragement ? `<p class="summary-cheer">🌟 ${esc(s.encouragement)}</p>` : ''}
         ${
           s.betterPhrasings.length

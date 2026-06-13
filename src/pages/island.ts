@@ -1,4 +1,5 @@
 import { SPOTS, sceneById, spotById } from '../data/island'
+import { FOX_ICON } from '../asset'
 import type { Scene, Spot, Step } from '../data/island'
 import { storage } from '../storage'
 import { VoiceHelper, isTTSSupported } from '../voice/speech'
@@ -159,7 +160,7 @@ export function renderIsland(): HTMLElement {
     }
 
     function avatar(who: Bubble['who'], emoji?: string): string {
-      if (who === 'fox') return `<img src="/fox.svg" class="sc-av" alt="" />`
+      if (who === 'fox') return `<img src="${FOX_ICON}" class="sc-av" alt="" />`
       if (who === 'player') return ''
       if (who === 'narration') return ''
       return `<span class="sc-av sc-av-emoji">${emoji ?? '🙂'}</span>`
