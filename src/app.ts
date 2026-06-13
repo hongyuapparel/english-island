@@ -1,19 +1,19 @@
-import { renderHome } from './pages/home'
+import { renderIsland } from './pages/island'
 import { renderReading } from './pages/reading'
 import { renderChat } from './pages/voice'
 import { renderMe } from './pages/me'
 import { APP_NAME_ZH } from './types'
 
-export type Route = 'home' | 'reading' | 'chat' | 'me'
+export type Route = 'island' | 'reading' | 'chat' | 'me'
 
 const NAV: { route: Route; label: string; icon: string }[] = [
-  { route: 'home', label: '今天', icon: '🏝️' },
-  { route: 'reading', label: '阅读', icon: '📖' },
+  { route: 'island', label: '小岛', icon: '🏝️' },
+  { route: 'reading', label: '故事', icon: '📖' },
   { route: 'chat', label: '对话', icon: '💬' },
   { route: 'me', label: '我的', icon: '👤' },
 ]
 
-let currentRoute: Route = 'home'
+let currentRoute: Route = 'island'
 
 export function navigate(route: Route) {
   currentRoute = route
@@ -25,8 +25,8 @@ export function navigate(route: Route) {
   main.innerHTML = ''
 
   switch (route) {
-    case 'home':
-      main.appendChild(renderHome())
+    case 'island':
+      main.appendChild(renderIsland())
       break
     case 'reading':
       main.appendChild(renderReading())
@@ -40,8 +40,8 @@ export function navigate(route: Route) {
   }
 
   const titles: Record<Route, string> = {
-    home: `今天 · ${APP_NAME_ZH}`,
-    reading: `阅读 · ${APP_NAME_ZH}`,
+    island: `小岛 · ${APP_NAME_ZH}`,
+    reading: `故事 · ${APP_NAME_ZH}`,
     chat: `对话 · ${APP_NAME_ZH}`,
     me: `我的 · ${APP_NAME_ZH}`,
   }

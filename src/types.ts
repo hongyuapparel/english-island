@@ -65,6 +65,22 @@ export interface SessionSummary {
   newWords: { word: string; meaning: string }[]
 }
 
+/** Progress of the player's English Island (the core game loop). */
+export interface IslandState {
+  coins: number
+  unlockedSpots: string[]
+  completedScenes: string[]
+  /** YYYY-MM-DD of the last day a brand-new scene was cleared (daily gate). */
+  lastUnlockDate: string
+}
+
+export const DEFAULT_ISLAND: IslandState = {
+  coins: 0,
+  unlockedSpots: ['beach'],
+  completedScenes: [],
+  lastUnlockDate: '',
+}
+
 export const AGENT_NAME = 'Fox'
 export const APP_NAME = 'English Island'
 export const APP_NAME_ZH = '英语小岛'

@@ -3,11 +3,17 @@ import type {
   AiSettings,
   ChatMessage,
   ErrorNote,
+  IslandState,
   SavedWord,
   SessionSummary,
   UserProfile,
 } from './types'
-import { DEFAULT_AI_SETTINGS, DEFAULT_PROFILE, DEFAULT_STATS } from './types'
+import {
+  DEFAULT_AI_SETTINGS,
+  DEFAULT_ISLAND,
+  DEFAULT_PROFILE,
+  DEFAULT_STATS,
+} from './types'
 
 const KEYS = {
   profile: 'ei_profile_v1',
@@ -19,6 +25,7 @@ const KEYS = {
   savedWords: 'ei_saved_words',
   summaries: 'ei_session_summaries',
   readArticles: 'ei_read_articles',
+  island: 'ei_island',
 } as const
 
 function load<T>(key: string, fallback: T): T {
@@ -150,6 +157,33 @@ export const storage = {
       ids.push(id)
       save(KEYS.readArticles, ids)
     }
+  },
+
+  getIsland: (): IslandState => load(KEYS.island, DEFAULT_ISLAND),
+  saveIsland: (state: IslandState) => save(KEYS.island, state),
+
+  /** Has the player already cleared a brand-new scene today? (daily gate) */
+  unlockedToday: (): boolean => {
+    return storage.getIsland().lastUnlockDate === todayStr()
+  },
+
+  /** Record a cleared scene: award coins, unlock the next spot, gate to today. */
+  completeScene: (
+    sceneId: string,
+    reward: { coins: number; unlockSpot?: string },
+  ): IslandState => {
+    const island = storage.getIsland()
+    const isNew = !island.completedScenes.includes(sceneId)
+    if (isNew) {
+      island.completedScenes.push(sceneId)
+      island.coins += reward.coins
+      if (reward.unlockSpot && !island.unlockedSpots.includes(reward.unlockSpot)) {
+        island.unlockedSpots.push(reward.unlockSpot)
+      }
+      island.lastUnlockDate = todayStr()
+    }
+    storage.saveIsland(island)
+    return island
   },
 
   getVoiceAutoRead: (): boolean => {
