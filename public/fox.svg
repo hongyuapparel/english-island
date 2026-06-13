@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="40%" r="65%">
+      <stop offset="0%" stop-color="#fff3e6"/>
+      <stop offset="100%" stop-color="#ffe2c2"/>
+    </radialGradient>
+  </defs>
+  <circle cx="120" cy="120" r="120" fill="url(#bg)"/>
+  <!-- ears -->
+  <path d="M70 78 L58 30 L104 64 Z" fill="#f08a3c"/>
+  <path d="M170 78 L182 30 L136 64 Z" fill="#f08a3c"/>
+  <path d="M74 72 L66 44 L96 64 Z" fill="#fff"/>
+  <path d="M166 72 L174 44 L144 64 Z" fill="#fff"/>
+  <!-- head -->
+  <path d="M120 70 C175 70 188 118 168 156 C152 186 138 196 120 196 C102 196 88 186 72 156 C52 118 65 70 120 70 Z" fill="#f7993f"/>
+  <!-- cheeks/muzzle -->
+  <path d="M120 110 C148 110 158 140 150 162 C142 182 130 192 120 192 C110 192 98 182 90 162 C82 140 92 110 120 110 Z" fill="#fff7ef"/>
+  <!-- eyes -->
+  <ellipse cx="98" cy="120" rx="9" ry="11" fill="#3b2a23"/>
+  <ellipse cx="142" cy="120" rx="9" ry="11" fill="#3b2a23"/>
+  <circle cx="101" cy="116" r="3" fill="#fff"/>
+  <circle cx="145" cy="116" r="3" fill="#fff"/>
+  <!-- nose -->
+  <path d="M120 150 C113 150 109 154 112 158 C115 162 120 164 120 164 C120 164 125 162 128 158 C131 154 127 150 120 150 Z" fill="#3b2a23"/>
+  <!-- smile -->
+  <path d="M120 164 C120 172 112 176 106 173" fill="none" stroke="#b06a2e" stroke-width="3" stroke-linecap="round"/>
+  <path d="M120 164 C120 172 128 176 134 173" fill="none" stroke="#b06a2e" stroke-width="3" stroke-linecap="round"/>
+</svg>

@@ -1,19 +1,53 @@
-import { renderVoice } from './pages/voice'
-import { renderCourses } from './pages/courses'
-import { renderSettings } from './pages/settings'
-import { renderNotes } from './pages/notes'
-import { AGENT_NAME } from './types'
+import { renderHome } from './pages/home'
+import { renderReading } from './pages/reading'
+import { renderChat } from './pages/voice'
+import { renderMe } from './pages/me'
+import { APP_NAME_ZH } from './types'
 
-type Route = 'voice' | 'courses' | 'notes' | 'settings'
+export type Route = 'home' | 'reading' | 'chat' | 'me'
 
 const NAV: { route: Route; label: string; icon: string }[] = [
-  { route: 'voice', label: '语音对话', icon: '🎤' },
-  { route: 'courses', label: '课程共读', icon: '📚' },
-  { route: 'notes', label: '错句本', icon: '📝' },
-  { route: 'settings', label: '设置', icon: '⚙️' },
+  { route: 'home', label: '今天', icon: '🏝️' },
+  { route: 'reading', label: '阅读', icon: '📖' },
+  { route: 'chat', label: '对话', icon: '💬' },
+  { route: 'me', label: '我的', icon: '👤' },
 ]
 
-let currentRoute: Route = 'voice'
+let currentRoute: Route = 'home'
+
+export function navigate(route: Route) {
+  currentRoute = route
+  document.querySelectorAll('.nav-btn').forEach((btn) => {
+    btn.classList.toggle('active', (btn as HTMLElement).dataset.route === route)
+  })
+
+  const main = document.querySelector('#main-content')!
+  main.innerHTML = ''
+
+  switch (route) {
+    case 'home':
+      main.appendChild(renderHome())
+      break
+    case 'reading':
+      main.appendChild(renderReading())
+      break
+    case 'chat':
+      main.appendChild(renderChat())
+      break
+    case 'me':
+      main.appendChild(renderMe())
+      break
+  }
+
+  const titles: Record<Route, string> = {
+    home: `今天 · ${APP_NAME_ZH}`,
+    reading: `阅读 · ${APP_NAME_ZH}`,
+    chat: `对话 · ${APP_NAME_ZH}`,
+    me: `我的 · ${APP_NAME_ZH}`,
+  }
+  document.title = titles[route]
+  ;(main as HTMLElement).scrollTop = 0
+}
 
 export function initApp() {
   const app = document.querySelector<HTMLDivElement>('#app')!
@@ -34,38 +68,14 @@ export function initApp() {
     nav.appendChild(btn)
   })
 
+  window.addEventListener('ei-navigate', (e) => {
+    navigate((e as CustomEvent<Route>).detail)
+  })
+
   navigate(currentRoute)
 }
 
-function navigate(route: Route) {
-  currentRoute = route
-  document.querySelectorAll('.nav-btn').forEach((btn) => {
-    btn.classList.toggle('active', (btn as HTMLElement).dataset.route === route)
-  })
-
-  const main = document.querySelector('#main-content')!
-  main.innerHTML = ''
-
-  switch (route) {
-    case 'voice':
-      main.appendChild(renderVoice())
-      break
-    case 'courses':
-      main.appendChild(renderCourses())
-      break
-    case 'settings':
-      main.appendChild(renderSettings())
-      break
-    case 'notes':
-      main.appendChild(renderNotes())
-      break
-  }
-
-  const titles: Record<Route, string> = {
-    voice: `语音对话 - ${AGENT_NAME}`,
-    courses: `课程共读 - ${AGENT_NAME}`,
-    notes: `错句本 - ${AGENT_NAME}`,
-    settings: `设置 - ${AGENT_NAME}`,
-  }
-  document.title = titles[route]
+/** Let any page jump to another tab. */
+export function goTo(route: Route) {
+  window.dispatchEvent(new CustomEvent('ei-navigate', { detail: route }))
 }
