@@ -1889,3 +1889,43 @@ input:focus, select:focus, textarea:focus {
 .rv-say, .rv-add { width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--color-border); background: var(--color-bg-warm); cursor: pointer; font-size: 0.85rem; flex-shrink: 0; }
 .rv-add.added { background: var(--color-success); color: #fff; border-color: var(--color-success); }
 .btn-soft { margin-top: 0.5rem; width: 100%; background: var(--color-bg-warm); border: 1px solid var(--color-border); border-radius: 10px; padding: 0.5rem; cursor: pointer; font-size: 0.85rem; color: var(--color-text-muted); }
+
+/* --- Buildable plots + visit overlay --- */
+.isl-hud-stats { display: flex; gap: 0.4rem; }
+.isl-coins, .isl-prosper { background: rgba(255,255,255,0.92); border-radius: 999px; padding: 0.3rem 0.7rem; font-weight: 600; box-shadow: 0 3px 10px rgba(0,0,0,0.12); }
+.isl-coins b { color: var(--color-accent); }
+.isl-prosper b { color: #2e9b5b; }
+
+.plot-pin { position: absolute; transform: translate(-50%, -100%); background: none; border: none; cursor: pointer; padding: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.plot-pin:active { transform: translate(-50%, -100%) scale(0.92); }
+.plot-built { animation: pin-bob 3.4s ease-in-out infinite; }
+.plot-collect { position: absolute; top: -6px; right: 6px; background: var(--color-accent); color: #fff; width: 20px; height: 20px; border-radius: 50%; font-size: 0.66rem; display: grid; place-items: center; box-shadow: 0 2px 6px rgba(255,140,66,0.5); animation: pin-glow 1.6s ease-in-out infinite; }
+.plot-unbuilt { opacity: 0.96; }
+.plot-ghost {
+  width: 52px; height: 52px; border-radius: 50% 50% 50% 8px; transform: rotate(45deg);
+  background: rgba(255,255,255,0.45); border: 2px dashed rgba(80,110,70,0.6);
+  display: grid; place-items: center; font-size: 1.3rem;
+}
+.plot-ghost::before { content: ''; }
+.plot-unbuilt .plot-ghost > * { transform: rotate(-45deg); }
+.plot-cost { margin-top: 4px; font-size: 0.68rem; font-weight: 700; color: #6a4a1e; background: #fff3d6; border-radius: 999px; padding: 1px 7px; white-space: nowrap; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+
+.visit-overlay { position: fixed; inset: 0; background: rgba(45,36,56,0.45); display: flex; align-items: flex-end; justify-content: center; z-index: 200; padding: 0 0.6rem calc(0.6rem + env(safe-area-inset-bottom)); }
+.visit-card { background: var(--color-surface); border-radius: 22px 22px 18px 18px; width: 100%; max-width: 460px; padding: 1.1rem 1.1rem 1rem; box-shadow: 0 -8px 30px rgba(0,0,0,0.22); position: relative; animation: vn-fade 0.2s ease; }
+.visit-x { position: absolute; top: 0.7rem; right: 0.8rem; border: none; background: none; font-size: 1rem; color: var(--color-text-muted); cursor: pointer; }
+.visit-head { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.7rem; }
+.visit-face { font-size: 2.4rem; }
+.visit-head b { font-family: var(--font-display); font-size: 1.05rem; display: block; }
+.visit-head span { font-size: 0.8rem; color: var(--color-text-muted); }
+.visit-bubble { background: var(--color-bg-warm); border-radius: 14px; padding: 0.8rem 0.9rem; margin-bottom: 0.7rem; }
+.visit-en { font-size: 1.1rem; line-height: 1.5; }
+.visit-say { border: none; background: none; cursor: pointer; font-size: 0.85rem; opacity: 0.6; }
+.visit-zh { font-size: 0.88rem; color: var(--color-text-muted); margin-top: 0.35rem; }
+.visit-actions { display: flex; gap: 0.5rem; margin-bottom: 0.7rem; }
+.visit-actions .btn-soft { flex: 1; margin: 0; }
+.visit-collect { margin-bottom: 0.7rem; justify-content: center; }
+.visit-collect:disabled { background: #e3ddd4; color: #9b8f86; box-shadow: none; cursor: default; }
+.visit-collect .quest-text { flex: none; text-align: center; }
+.visit-vocab { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.visit-vocab .word-chip { display: inline-flex; align-items: center; gap: 0.3rem; }
+.vw-add { border: none; background: var(--color-primary-light); color: #fff; width: 18px; height: 18px; border-radius: 50%; font-size: 0.7rem; cursor: pointer; }

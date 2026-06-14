@@ -198,6 +198,41 @@ export const storage = {
     return island
   },
 
+  /** Spend shells to build a plot. Returns false if too few coins. */
+  buildPlot: (id: string, cost: number): boolean => {
+    const island = storage.getIsland()
+    if (island.built.includes(id)) return true
+    if (island.coins < cost) return false
+    island.coins -= cost
+    island.built.push(id)
+    storage.saveIsland(island)
+    return true
+  },
+
+  canCollect: (id: string): boolean => {
+    const island = storage.getIsland()
+    if (island.collectDate !== todayStr()) return true
+    return !island.collectedToday.includes(id)
+  },
+
+  /** Collect the daily shells from a built plot. Returns coins gained (0 if already collected). */
+  collectFromPlot: (id: string, amount: number): number => {
+    const island = storage.getIsland()
+    const today = todayStr()
+    if (island.collectDate !== today) {
+      island.collectDate = today
+      island.collectedToday = []
+    }
+    if (island.collectedToday.includes(id)) {
+      storage.saveIsland(island)
+      return 0
+    }
+    island.collectedToday.push(id)
+    island.coins += amount
+    storage.saveIsland(island)
+    return amount
+  },
+
   getVoiceAutoRead: (): boolean => {
     return localStorage.getItem(KEYS.voiceAutoRead) !== '0'
   },

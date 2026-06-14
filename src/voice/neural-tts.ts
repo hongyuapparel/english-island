@@ -181,14 +181,31 @@ async function fetchTts(
 
 // --- playback ----------------------------------------------------------
 let stopFlag = false
+let settleCurrent: (() => void) | null = null
 
+/**
+ * Play one audio URL. Resolves when it finishes (or is stopped), REJECTS if
+ * the audio can't load/play — so callers fall back to the system voice
+ * instead of going silent.
+ */
 function playUrl(url: string): Promise<void> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const a = getAudio()
+    let settled = false
+    const finish = (ok: boolean) => {
+      if (settled) return
+      settled = true
+      a.onended = null
+      a.onerror = null
+      settleCurrent = null
+      if (ok) resolve()
+      else reject(new Error('audio failed'))
+    }
+    settleCurrent = () => finish(true) // intentional stop = not a failure
+    a.onended = () => finish(true)
+    a.onerror = () => finish(false)
     a.src = url
-    a.onended = () => resolve()
-    a.onerror = () => resolve()
-    a.play().catch(() => resolve())
+    a.play().catch(() => finish(false))
   })
 }
 
@@ -233,6 +250,7 @@ export async function neuralSpeakSequence(
 
 export function neuralStop(): void {
   stopFlag = true
+  if (settleCurrent) settleCurrent()
   if (sharedAudio) {
     sharedAudio.pause()
     try {
