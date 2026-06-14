@@ -20,8 +20,35 @@ export const GEMINI_VOICES: { name: string; zh: string }[] = [
   { name: 'Kore', zh: '沉稳' },
 ]
 
+/** Free (Pollinations / OpenAI) voices — no key required. */
+export const FREE_VOICES: { name: string; zh: string }[] = [
+  { name: 'nova', zh: '温暖女声' },
+  { name: 'shimmer', zh: '轻柔女声' },
+  { name: 'fable', zh: '故事感' },
+  { name: 'alloy', zh: '自然中性' },
+  { name: 'echo', zh: '沉稳男声' },
+  { name: 'onyx', zh: '低沉男声' },
+]
+
 export function useNeuralVoice(settings: AiSettings): boolean {
-  return settings.ttsVoice !== 'system' && !!settings.geminiApiKey
+  if (settings.ttsVoice === 'system') return false
+  if (settings.ttsVoice === 'free') return true // no key needed
+  return !!settings.geminiApiKey
+}
+
+/** Free TTS: a plain audio URL the <audio> element streams directly (no CORS). */
+function freeVoiceUrl(text: string, settings: AiSettings): string {
+  const voice = settings.freeVoice || 'nova'
+  return `https://text.pollinations.ai/${encodeURIComponent(text)}?model=openai-audio&voice=${voice}`
+}
+
+async function getAudioUrl(
+  text: string,
+  settings: AiSettings,
+  style: TtsStyle,
+): Promise<string> {
+  if (settings.ttsVoice === 'free') return freeVoiceUrl(text, settings)
+  return fetchTts(text, settings, style)
 }
 
 function stylePrefix(style: TtsStyle): string {
@@ -172,7 +199,7 @@ export async function neuralSpeak(
   style: TtsStyle = 'warm',
 ): Promise<void> {
   stopFlag = false
-  const url = await fetchTts(text, settings, style)
+  const url = await getAudioUrl(text, settings, style)
   if (stopFlag) return
   await playUrl(url)
 }
@@ -185,7 +212,7 @@ export async function neuralSpeakSequence(
 ): Promise<void> {
   stopFlag = false
   let nextUrl: Promise<string> | null = texts.length
-    ? fetchTts(texts[0], settings, style)
+    ? getAudioUrl(texts[0], settings, style)
     : null
   for (let i = 0; i < texts.length; i++) {
     if (stopFlag || !nextUrl) return
@@ -196,7 +223,9 @@ export async function neuralSpeakSequence(
       throw new Error('TTS sequence failed')
     }
     nextUrl =
-      i + 1 < texts.length ? fetchTts(texts[i + 1], settings, style).catch(() => '') as Promise<string> : null
+      i + 1 < texts.length
+        ? (getAudioUrl(texts[i + 1], settings, style).catch(() => '') as Promise<string>)
+        : null
     if (stopFlag) return
     await playUrl(url)
   }

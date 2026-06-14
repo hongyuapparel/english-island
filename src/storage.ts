@@ -82,7 +82,19 @@ export const storage = {
     return stats
   },
 
-  getAiSettings: (): AiSettings => load(KEYS.aiSettings, DEFAULT_AI_SETTINGS),
+  getAiSettings: (): AiSettings => {
+    const s = load(KEYS.aiSettings, DEFAULT_AI_SETTINGS)
+    // One-time switch of existing installs to the free, no-key AI + voice,
+    // so chat/read-aloud work without setting up any API key.
+    if (localStorage.getItem('ei_free_migrated_v1') !== '1') {
+      s.provider = 'free'
+      s.ttsVoice = 'free'
+      if (!s.freeVoice) s.freeVoice = 'nova'
+      save(KEYS.aiSettings, s)
+      localStorage.setItem('ei_free_migrated_v1', '1')
+    }
+    return s
+  },
   saveAiSettings: (settings: AiSettings) => save(KEYS.aiSettings, settings),
 
   getErrorNotes: (): ErrorNote[] => {
