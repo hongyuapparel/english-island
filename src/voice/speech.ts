@@ -125,16 +125,28 @@ export class VoiceHelper {
     speechSynthesis.speak(utter)
   }
 
+  /** Read a long passage by queueing it sentence by sentence. */
+  speakLong(text: string, rate = 0.95, lang = 'en-US'): void {
+    this.stopSpeaking()
+    const clean = text.replace(/\s+/g, ' ').trim()
+    if (!clean) return
+    const chunks = clean.match(/[^.!?]+[.!?]*/g) ?? [clean]
+    const voices = speechSynthesis.getVoices()
+    const preferred =
+      voices.find((v) => v.lang.startsWith(lang.slice(0, 2)) && v.name.includes('Google')) ??
+      voices.find((v) => v.lang.startsWith(lang.slice(0, 2)))
+    for (const chunk of chunks) {
+      const trimmed = chunk.trim()
+      if (!trimmed) continue
+      const utter = new SpeechSynthesisUtterance(trimmed)
+      utter.lang = lang
+      utter.rate = rate
+      if (preferred) utter.voice = preferred
+      speechSynthesis.speak(utter)
+    }
+  }
+
   stopSpeaking() {
     speechSynthesis.cancel()
   }
-}
-
-export function speakLessonText(text: string) {
-  const helper = new VoiceHelper()
-  const lines = text
-    .split('\n')
-    .filter((l) => l.trim() && !l.startsWith('📝') && !l.startsWith('🎯'))
-    .join('. ')
-  helper.speak(lines, 'en-US', 0.85)
 }

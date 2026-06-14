@@ -1,16 +1,20 @@
 import type {
+  AgentStats,
   AiSettings,
   ChatMessage,
+  ErrorNote,
   MemoryExtraction,
+  SessionSummary,
   UserProfile,
 } from '../types'
 import {
   buildAgentSystemPrompt,
-  buildLessonSystemPrompt,
+  buildArticleDiscussionPrompt,
+  buildGreetingPrompt,
   MEMORY_EXTRACTION_PROMPT,
+  SESSION_SUMMARY_PROMPT,
 } from './prompt'
-import type { AgentStats, ErrorNote } from '../types'
-import type { Lesson, LessonPage } from '../data/courses'
+import type { Article } from '../data/articles'
 
 type ApiMessage = { role: 'system' | 'user' | 'assistant'; content: string }
 
@@ -18,6 +22,12 @@ async function callAi(
   settings: AiSettings,
   messages: ApiMessage[],
 ): Promise<string> {
+  // Gemini is called straight from the browser so the app works on a
+  // static host (e.g. GitHub Pages) with no backend — ideal for mobile.
+  if (settings.provider === 'gemini') {
+    return callGeminiDirect(settings, messages)
+  }
+  // Ollama needs the local Express proxy (development only).
   const response = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -26,13 +36,55 @@ async function callAi(
       messages,
       ollamaBaseUrl: settings.ollamaBaseUrl,
       ollamaModel: settings.ollamaModel,
-      geminiApiKey: settings.geminiApiKey,
-      geminiModel: settings.geminiModel,
     }),
   })
   const data = (await response.json()) as { content?: string; error?: string }
   if (!response.ok) throw new Error(data.error || '请求失败')
   return data.content ?? ''
+}
+
+async function callGeminiDirect(
+  settings: AiSettings,
+  messages: ApiMessage[],
+): Promise<string> {
+  if (!settings.geminiApiKey) {
+    throw new Error('请先在「我的 → AI 设置」填入 Gemini API Key')
+  }
+  const model = settings.geminiModel || 'gemini-2.0-flash'
+  const system = messages.find((m) => m.role === 'system')
+  const contents = messages
+    .filter((m) => m.role !== 'system')
+    .map((m) => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }],
+    }))
+  const body: Record<string, unknown> = { contents }
+  if (system) body.systemInstruction = { parts: [{ text: system.content }] }
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${settings.geminiApiKey}`
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const data = (await response.json()) as {
+    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>
+    error?: { message?: string }
+  }
+  if (!response.ok) {
+    throw new Error(`Gemini 错误：${data.error?.message ?? response.status}`)
+  }
+  return data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+}
+
+function firstJson<T>(raw: string): T | null {
+  const match = raw.match(/\{[\s\S]*\}/)
+  if (!match) return null
+  try {
+    return JSON.parse(match[0]) as T
+  } catch {
+    return null
+  }
 }
 
 export async function sendChatMessage(
@@ -43,10 +95,11 @@ export async function sendChatMessage(
   history: ChatMessage[],
   userMessage: string,
   voiceMode = false,
+  systemOverride?: string,
 ): Promise<string> {
-  const systemPrompt = buildAgentSystemPrompt(profile, stats, errorNotes, {
-    voiceMode,
-  })
+  const systemPrompt =
+    systemOverride ??
+    buildAgentSystemPrompt(profile, stats, errorNotes, { voiceMode })
   const messages: ApiMessage[] = [
     { role: 'system', content: systemPrompt },
     ...history.map((m) => ({
@@ -58,25 +111,23 @@ export async function sendChatMessage(
   return callAi(settings, messages)
 }
 
-export async function sendLessonQuestion(
+/** Ask Fox to proactively greet the user when they open the app. */
+export async function generateGreeting(
   profile: UserProfile,
+  stats: AgentStats,
   settings: AiSettings,
-  lesson: Lesson,
-  page: LessonPage,
-  pageIndex: number,
-  history: ChatMessage[],
-  question: string,
 ): Promise<string> {
-  const systemPrompt = buildLessonSystemPrompt(profile, lesson, page, pageIndex)
-  const messages: ApiMessage[] = [
-    { role: 'system', content: systemPrompt },
-    ...history.map((m) => ({
-      role: m.role as 'user' | 'assistant',
-      content: m.content,
-    })),
-    { role: 'user', content: question },
-  ]
-  return callAi(settings, messages)
+  return callAi(settings, [
+    { role: 'system', content: buildGreetingPrompt(profile, stats) },
+    { role: 'user', content: '(The user just opened the app. Greet them.)' },
+  ])
+}
+
+export function buildArticleSystemPrompt(
+  profile: UserProfile,
+  article: Article,
+): string {
+  return buildArticleDiscussionPrompt(profile, article)
 }
 
 export async function extractMemoryFromChat(
@@ -87,7 +138,7 @@ export async function extractMemoryFromChat(
   if (history.length < 2) return null
   const transcript = history
     .slice(-12)
-    .map((m) => `${m.role === 'user' ? 'Learner' : 'Coach'}: ${m.content}`)
+    .map((m) => `${m.role === 'user' ? 'Learner' : 'Fox'}: ${m.content}`)
     .join('\n')
   try {
     const raw = await callAi(settings, [
@@ -97,9 +148,37 @@ export async function extractMemoryFromChat(
         content: `Profile:\n${JSON.stringify(currentProfile)}\n\nChat:\n${transcript}`,
       },
     ])
-    const jsonMatch = raw.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) return null
-    return JSON.parse(jsonMatch[0]) as MemoryExtraction
+    return firstJson<MemoryExtraction>(raw)
+  } catch {
+    return null
+  }
+}
+
+/** Produce a gentle end-of-session recap. */
+export async function summarizeSession(
+  settings: AiSettings,
+  history: ChatMessage[],
+): Promise<SessionSummary | null> {
+  const userTurns = history.filter((m) => m.role === 'user')
+  if (userTurns.length < 1) return null
+  const transcript = history
+    .map((m) => `${m.role === 'user' ? 'Learner' : 'Fox'}: ${m.content}`)
+    .join('\n')
+  try {
+    const raw = await callAi(settings, [
+      { role: 'system', content: SESSION_SUMMARY_PROMPT },
+      { role: 'user', content: transcript },
+    ])
+    const parsed = firstJson<Omit<SessionSummary, 'id' | 'createdAt'>>(raw)
+    if (!parsed) return null
+    return {
+      id: crypto.randomUUID(),
+      createdAt: Date.now(),
+      encouragement: parsed.encouragement ?? '',
+      betterPhrasings: parsed.betterPhrasings ?? [],
+      commonMistakes: parsed.commonMistakes ?? [],
+      newWords: parsed.newWords ?? [],
+    }
   } catch {
     return null
   }

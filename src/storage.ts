@@ -3,18 +3,29 @@ import type {
   AiSettings,
   ChatMessage,
   ErrorNote,
+  IslandState,
+  SavedWord,
+  SessionSummary,
   UserProfile,
 } from './types'
-import { DEFAULT_AI_SETTINGS, DEFAULT_PROFILE, DEFAULT_STATS } from './types'
+import {
+  DEFAULT_AI_SETTINGS,
+  DEFAULT_ISLAND,
+  DEFAULT_PROFILE,
+  DEFAULT_STATS,
+} from './types'
 
 const KEYS = {
-  profile: 'et_profile_v2',
-  aiSettings: 'et_ai_settings',
-  errorNotes: 'et_error_notes',
-  chatHistory: 'et_chat_history',
-  stats: 'et_agent_stats',
-  lessonProgress: 'et_lesson_progress',
-  voiceAutoRead: 'et_voice_auto_read',
+  profile: 'ei_profile_v1',
+  aiSettings: 'ei_ai_settings',
+  errorNotes: 'ei_error_notes',
+  chatHistory: 'ei_chat_history',
+  stats: 'ei_agent_stats',
+  voiceAutoRead: 'ei_voice_auto_read',
+  savedWords: 'ei_saved_words',
+  summaries: 'ei_session_summaries',
+  readArticles: 'ei_read_articles',
+  island: 'ei_island',
 } as const
 
 function load<T>(key: string, fallback: T): T {
@@ -29,6 +40,15 @@ function load<T>(key: string, fallback: T): T {
 
 function save<T>(key: string, value: T): void {
   localStorage.setItem(key, JSON.stringify(value))
+}
+
+function readArr<T>(key: string): T[] {
+  try {
+    const raw = localStorage.getItem(key)
+    return raw ? (JSON.parse(raw) as T[]) : []
+  } catch {
+    return []
+  }
 }
 
 function todayStr(): string {
@@ -103,23 +123,67 @@ export const storage = {
     localStorage.removeItem(KEYS.chatHistory)
   },
 
-  getLessonProgress: (): Record<string, { page: number; done: boolean }> => {
-    try {
-      const raw = localStorage.getItem(KEYS.lessonProgress)
-      return raw ? JSON.parse(raw) : {}
-    } catch {
-      return {}
+  getSavedWords: (): SavedWord[] => readArr<SavedWord>(KEYS.savedWords),
+  addSavedWords: (words: { word: string; meaning: string }[]) => {
+    const existing = storage.getSavedWords()
+    const known = new Set(existing.map((w) => w.word.toLowerCase()))
+    for (const w of words) {
+      const key = w.word.trim().toLowerCase()
+      if (!key || known.has(key)) continue
+      known.add(key)
+      existing.unshift({ word: w.word.trim(), meaning: w.meaning, createdAt: Date.now() })
+    }
+    save(KEYS.savedWords, existing.slice(0, 300))
+    return existing
+  },
+  deleteSavedWord: (word: string) => {
+    const words = storage.getSavedWords().filter((w) => w.word !== word)
+    save(KEYS.savedWords, words)
+    return words
+  },
+
+  getSummaries: (): SessionSummary[] => readArr<SessionSummary>(KEYS.summaries),
+  addSummary: (summary: SessionSummary) => {
+    const all = storage.getSummaries()
+    all.unshift(summary)
+    save(KEYS.summaries, all.slice(0, 50))
+    return all
+  },
+
+  getReadArticles: (): string[] => readArr<string>(KEYS.readArticles),
+  markArticleRead: (id: string) => {
+    const ids = storage.getReadArticles()
+    if (!ids.includes(id)) {
+      ids.push(id)
+      save(KEYS.readArticles, ids)
     }
   },
-  saveLessonPage: (lessonId: string, page: number) => {
-    const prog = storage.getLessonProgress()
-    prog[lessonId] = { page, done: prog[lessonId]?.done ?? false }
-    localStorage.setItem(KEYS.lessonProgress, JSON.stringify(prog))
+
+  getIsland: (): IslandState => load(KEYS.island, DEFAULT_ISLAND),
+  saveIsland: (state: IslandState) => save(KEYS.island, state),
+
+  /** Has the player already cleared a brand-new scene today? (daily gate) */
+  unlockedToday: (): boolean => {
+    return storage.getIsland().lastUnlockDate === todayStr()
   },
-  markLessonDone: (lessonId: string) => {
-    const prog = storage.getLessonProgress()
-    prog[lessonId] = { page: prog[lessonId]?.page ?? 0, done: true }
-    localStorage.setItem(KEYS.lessonProgress, JSON.stringify(prog))
+
+  /** Record a cleared scene: award coins, unlock the next spot, gate to today. */
+  completeScene: (
+    sceneId: string,
+    reward: { coins: number; unlockSpot?: string },
+  ): IslandState => {
+    const island = storage.getIsland()
+    const isNew = !island.completedScenes.includes(sceneId)
+    if (isNew) {
+      island.completedScenes.push(sceneId)
+      island.coins += reward.coins
+      if (reward.unlockSpot && !island.unlockedSpots.includes(reward.unlockSpot)) {
+        island.unlockedSpots.push(reward.unlockSpot)
+      }
+      island.lastUnlockDate = todayStr()
+    }
+    storage.saveIsland(island)
+    return island
   },
 
   getVoiceAutoRead: (): boolean => {

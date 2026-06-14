@@ -1,0 +1,14 @@
+{
+  "name": "English Island · 英语小岛",
+  "short_name": "英语小岛",
+  "description": "童话风格的英语养成游戏：每天解锁一个场景，把小岛养大。",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fef9f3",
+  "theme_color": "#fef9f3",
+  "icons": [
+    { "src": "fox.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
