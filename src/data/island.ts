@@ -241,9 +241,100 @@ export const SCENES: Scene[] = [
   },
 ]
 
+// --- Buildable plots: spend shells to construct, then visit for short
+//     English chats with the resident, and collect shells each day. -------
+export interface Plot {
+  id: string
+  name: string
+  nameZh: string
+  emoji: string
+  resident: string
+  residentEmoji: string
+  x: number
+  y: number
+  cost: number
+  /** short lines the resident says when you visit (one shown at random) */
+  lines: { en: string; zh: string }[]
+  vocab: { word: string; meaning: string }[]
+}
+
+export const DAILY_COLLECT = 3
+
+export const PLOTS: Plot[] = [
+  {
+    id: 'farm',
+    name: 'Little Farm',
+    nameZh: '小农场',
+    emoji: '🌾',
+    resident: 'Sprout',
+    residentEmoji: '🐤',
+    x: 30,
+    y: 52,
+    cost: 15,
+    lines: [
+      { en: "Good morning! The carrots are almost ready to pick.", zh: '早上好！胡萝卜快可以拔了。' },
+      { en: "If you plant a seed today, you'll eat in summer.", zh: '今天种下一颗种子，夏天就有得吃。' },
+      { en: "Rain last night — the soil smells wonderful!", zh: '昨晚下了雨，泥土的味道真好闻！' },
+      { en: "Hard work in spring, full baskets in fall.", zh: '春天努力，秋天满筐。' },
+    ],
+    vocab: [
+      { word: 'seed', meaning: '种子' },
+      { word: 'soil', meaning: '泥土' },
+      { word: 'pick', meaning: '采摘' },
+    ],
+  },
+  {
+    id: 'market',
+    name: 'Island Market',
+    nameZh: '小岛集市',
+    emoji: '🛒',
+    resident: 'Penny',
+    residentEmoji: '🐧',
+    x: 60,
+    y: 46,
+    cost: 35,
+    lines: [
+      { en: "Fresh fish today — only three shells each!", zh: '今天有新鲜的鱼，每条只要三个贝壳！' },
+      { en: "How many apples would you like?", zh: '你想要几个苹果？' },
+      { en: "That's a great choice. Anything else?", zh: '选得真好。还要别的吗？' },
+      { en: "Come back tomorrow, I'll save the best ones for you.", zh: '明天再来，我给你留最好的。' },
+    ],
+    vocab: [
+      { word: 'fresh', meaning: '新鲜的' },
+      { word: 'price', meaning: '价格' },
+      { word: 'choice', meaning: '选择' },
+    ],
+  },
+  {
+    id: 'fountain',
+    name: 'Wishing Fountain',
+    nameZh: '许愿喷泉',
+    emoji: '⛲',
+    resident: 'Echo',
+    residentEmoji: '🦢',
+    x: 46,
+    y: 62,
+    cost: 55,
+    lines: [
+      { en: "Make a wish and toss a shell into the water.", zh: '许个愿，把贝壳丢进水里吧。' },
+      { en: "They say the fountain listens on quiet nights.", zh: '据说安静的夜里，喷泉会倾听。' },
+      { en: "What do you hope for this year?", zh: '今年你期望什么？' },
+      { en: "Kind wishes have a way of coming true.", zh: '善良的愿望总有办法成真。' },
+    ],
+    vocab: [
+      { word: 'wish', meaning: '愿望' },
+      { word: 'toss', meaning: '抛、扔' },
+      { word: 'quiet', meaning: '安静的' },
+    ],
+  },
+]
+
 export function sceneById(id: string): Scene | undefined {
   return SCENES.find((s) => s.id === id)
 }
 export function spotById(id: string): Spot | undefined {
   return SPOTS.find((s) => s.id === id)
+}
+export function plotById(id: string): Plot | undefined {
+  return PLOTS.find((p) => p.id === id)
 }

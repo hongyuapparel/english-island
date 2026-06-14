@@ -1,6 +1,6 @@
-import { SPOTS, sceneById, spotById } from '../data/island'
+import { SPOTS, PLOTS, DAILY_COLLECT, sceneById, spotById, plotById } from '../data/island'
 import { FOX_ICON } from '../asset'
-import type { Scene, Spot } from '../data/island'
+import type { Scene, Spot, Plot } from '../data/island'
 import { storage } from '../storage'
 import { VoiceHelper, isTTSSupported } from '../voice/speech'
 import { AGENT_NAME } from '../types'
@@ -40,10 +40,14 @@ export function renderIsland(): HTMLElement {
           <path d="${trailPath()}" />
         </svg>
         ${SPOTS.map((s) => spotPin(s)).join('')}
+        ${PLOTS.map((p) => plotPin(p)).join('')}
 
         <div class="isl-hud">
           <div class="isl-title">🏝️ 英语小岛</div>
-          <div class="isl-coins">🐚 <b>${island.coins}</b></div>
+          <div class="isl-hud-stats">
+            <span class="isl-coins">🐚 <b>${island.coins}</b></span>
+            <span class="isl-prosper">🏠 <b>${island.built.length}</b></span>
+          </div>
         </div>
       </div>
 
@@ -56,8 +60,8 @@ export function renderIsland(): HTMLElement {
                  <span class="quest-go">▶</span>
                </button>`
             : storage.unlockedToday()
-              ? `<div class="island-rest">🌙 今天的新故事读完啦，明天再来解锁下一处<br><span class="hint">连续 ${stats.streak} 天 · 已点亮 ${island.unlockedSpots.length} 处</span></div>`
-              : `<div class="island-rest">🎉 你已经走遍了现在的小岛！更多场景很快上线</div>`
+              ? `<div class="island-rest">🌙 今天的新故事读完啦，明天再来解锁下一处<br><span class="hint">连续 ${stats.streak} 天 · 用 🐚 在岛上建造新建筑吧</span></div>`
+              : `<div class="island-rest">🎉 主线走完啦！用 🐚 建造小岛、每天回来和居民聊聊</div>`
         }
       </div>
     `
@@ -68,6 +72,44 @@ export function renderIsland(): HTMLElement {
     el.querySelectorAll('.spot-pin').forEach((pin) =>
       pin.addEventListener('click', () => onSpotClick((pin as HTMLElement).dataset.id!)),
     )
+    el.querySelectorAll('.plot-pin').forEach((pin) =>
+      pin.addEventListener('click', () => onPlotClick((pin as HTMLElement).dataset.id!)),
+    )
+  }
+
+  function plotPin(plot: Plot): string {
+    const island = storage.getIsland()
+    const built = island.built.includes(plot.id)
+    if (!built) {
+      return `
+        <button class="plot-pin plot-unbuilt" data-id="${plot.id}" style="left:${plot.x}%;top:${plot.y}%">
+          <span class="plot-ghost">${plot.emoji}</span>
+          <span class="plot-cost">🔨 ${plot.cost}🐚</span>
+        </button>`
+    }
+    const canCollect = storage.canCollect(plot.id)
+    return `
+      <button class="plot-pin plot-built" data-id="${plot.id}" style="left:${plot.x}%;top:${plot.y}%">
+        <span class="spot-bubble"><span class="spot-emoji">${plot.emoji}</span></span>
+        <span class="spot-label">${esc(plot.nameZh)}</span>
+        ${canCollect ? '<span class="plot-collect">🐚</span>' : ''}
+      </button>`
+  }
+
+  function onPlotClick(id: string) {
+    const plot = plotById(id)!
+    const island = storage.getIsland()
+    if (!island.built.includes(plot.id)) {
+      if (island.coins < plot.cost) {
+        toast(`还差 ${plot.cost - island.coins} 🐚，去玩故事或收集贝壳`)
+        return
+      }
+      storage.buildPlot(plot.id, plot.cost)
+      toast(`🎉 建好了「${plot.nameZh}」！`)
+      map()
+      return
+    }
+    visitPlot(plot)
   }
 
   function trailPath(): string {
@@ -380,6 +422,88 @@ export function renderIsland(): HTMLElement {
     }
 
     if (phase === 'intro') paintIntro()
+  }
+
+  function visitPlot(plot: Plot) {
+    tts.stopSpeaking()
+    let showZh = false
+    let line = plot.lines[Math.floor(Math.random() * plot.lines.length)]
+
+    const overlay = document.createElement('div')
+    overlay.className = 'visit-overlay'
+
+    function speakLine() {
+      if (isTTSSupported() && storage.getVoiceAutoRead()) tts.speak(line.en, 'en-US', 0.92)
+    }
+
+    function paint() {
+      const canCollect = storage.canCollect(plot.id)
+      overlay.innerHTML = `
+        <div class="visit-card">
+          <button class="visit-x" id="visit-close">✕</button>
+          <div class="visit-head">
+            <span class="visit-face vn-pop">${plot.residentEmoji}</span>
+            <div><b>${esc(plot.resident)}</b><span>${esc(plot.nameZh)}</span></div>
+          </div>
+          <div class="visit-bubble">
+            <p class="visit-en">${esc(line.en)} <button class="visit-say" id="visit-say">🔊</button></p>
+            ${showZh ? `<p class="visit-zh">${esc(line.zh)}</p>` : ''}
+          </div>
+          <div class="visit-actions">
+            <button class="btn-soft" id="visit-zh-btn">${showZh ? '隐藏中文' : '显示中文'}</button>
+            <button class="btn-soft" id="visit-next">换一句</button>
+          </div>
+          <button class="btn-quest visit-collect" id="visit-collect" ${canCollect ? '' : 'disabled'}>
+            <span class="quest-text"><b>${canCollect ? `收集今日 +${DAILY_COLLECT} 🐚` : '今天已收集，明天再来'}</b></span>
+          </button>
+          <div class="visit-vocab">
+            ${plot.vocab
+              .map(
+                (v) => `<span class="word-chip"><b>${esc(v.word)}</b> ${esc(v.meaning)}
+                  <button class="vw-add" data-w="${escAttr(v.word)}" data-m="${escAttr(v.meaning)}">＋</button></span>`,
+              )
+              .join('')}
+          </div>
+        </div>
+      `
+
+      overlay.querySelector('#visit-close')?.addEventListener('click', close)
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) close()
+      })
+      overlay.querySelector('#visit-say')?.addEventListener('click', () => tts.speak(line.en, 'en-US', 0.92))
+      overlay.querySelector('#visit-zh-btn')?.addEventListener('click', () => {
+        showZh = !showZh
+        paint()
+      })
+      overlay.querySelector('#visit-next')?.addEventListener('click', () => {
+        line = plot.lines[Math.floor(Math.random() * plot.lines.length)]
+        paint()
+        speakLine()
+      })
+      overlay.querySelector('#visit-collect')?.addEventListener('click', () => {
+        const gained = storage.collectFromPlot(plot.id, DAILY_COLLECT)
+        if (gained > 0) toast(`+${gained} 🐚`)
+        paint()
+      })
+      overlay.querySelectorAll('.vw-add').forEach((b) =>
+        b.addEventListener('click', () => {
+          const btn = b as HTMLElement
+          storage.addSavedWords([{ word: btn.dataset.w!, meaning: btn.dataset.m! }])
+          btn.textContent = '✓'
+        }),
+      )
+    }
+
+    function close() {
+      tts.stopSpeaking()
+      overlay.remove()
+      map() // refresh coins / collect dots
+    }
+
+    paint()
+    el.appendChild(overlay)
+    speakLine()
   }
 
   function toast(msg: string) {

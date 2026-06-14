@@ -78,6 +78,12 @@ export interface IslandState {
   completedScenes: string[]
   /** YYYY-MM-DD of the last day a brand-new scene was cleared (daily gate). */
   lastUnlockDate: string
+  /** plots the player has built (spent shells on). */
+  built: string[]
+  /** YYYY-MM-DD of the current daily-collect window. */
+  collectDate: string
+  /** built plots already collected from today. */
+  collectedToday: string[]
 }
 
 export const DEFAULT_ISLAND: IslandState = {
@@ -85,6 +91,9 @@ export const DEFAULT_ISLAND: IslandState = {
   unlockedSpots: ['beach'],
   completedScenes: [],
   lastUnlockDate: '',
+  built: [],
+  collectDate: '',
+  collectedToday: [],
 }
 
 export const AGENT_NAME = 'Fox'
