@@ -31,9 +31,20 @@ export const FREE_VOICES: { name: string; zh: string }[] = [
   { name: 'Ivy', zh: '美音童声' },
 ]
 
+/** OpenAI-compatible (AIHubMix) voices. */
+export const OPENAI_VOICES: { name: string; zh: string }[] = [
+  { name: 'nova', zh: '温暖女声' },
+  { name: 'shimmer', zh: '轻柔女声' },
+  { name: 'fable', zh: '故事感' },
+  { name: 'alloy', zh: '自然中性' },
+  { name: 'echo', zh: '沉稳男声' },
+  { name: 'onyx', zh: '低沉男声' },
+]
+
 export function useNeuralVoice(settings: AiSettings): boolean {
   if (settings.ttsVoice === 'system') return false
   if (settings.ttsVoice === 'free') return true // no key needed
+  if (settings.ttsVoice === 'openai') return !!settings.openaiApiKey
   return !!settings.geminiApiKey
 }
 
@@ -43,12 +54,33 @@ function freeVoiceUrl(text: string, settings: AiSettings): string {
   return `https://api.streamelements.com/kappa/v2/speech?voice=${encodeURIComponent(voice)}&text=${encodeURIComponent(text.slice(0, 500))}`
 }
 
+/** OpenAI-compatible TTS (AIHubMix): fetch the MP3 and play it as a blob. */
+async function fetchOpenAiTts(text: string, settings: AiSettings): Promise<string> {
+  const base = (settings.openaiBaseUrl || 'https://aihubmix.com/v1').replace(/\/$/, '')
+  const res = await fetch(`${base}/audio/speech`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${settings.openaiApiKey}`,
+    },
+    body: JSON.stringify({
+      model: 'tts-1',
+      voice: settings.openaiVoice || 'nova',
+      input: text,
+    }),
+  })
+  if (!res.ok) throw new Error(`TTS ${res.status}`)
+  const buf = await res.arrayBuffer()
+  return URL.createObjectURL(new Blob([buf], { type: 'audio/mpeg' }))
+}
+
 async function getAudioUrl(
   text: string,
   settings: AiSettings,
   style: TtsStyle,
 ): Promise<string> {
   if (settings.ttsVoice === 'free') return freeVoiceUrl(text, settings)
+  if (settings.ttsVoice === 'openai') return fetchOpenAiTts(text, settings)
   return fetchTts(text, settings, style)
 }
 

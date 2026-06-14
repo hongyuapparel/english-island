@@ -27,6 +27,10 @@ async function callAi(
   if (settings.provider === 'free') {
     return callPollinations(messages)
   }
+  // OpenAI-compatible endpoint (e.g. AIHubMix) — user's own key.
+  if (settings.provider === 'openai') {
+    return callOpenAiCompatible(settings, messages)
+  }
   // Gemini is called straight from the browser so the app works on a
   // static host (e.g. GitHub Pages) with no backend — ideal for mobile.
   if (settings.provider === 'gemini') {
@@ -70,6 +74,35 @@ async function callPollinations(messages: ApiMessage[]): Promise<string> {
   } catch {
     return raw
   }
+}
+
+async function callOpenAiCompatible(
+  settings: AiSettings,
+  messages: ApiMessage[],
+): Promise<string> {
+  if (!settings.openaiApiKey) {
+    throw new Error('请先在「我的 → AI 设置」填入 AIHubMix / OpenAI Key')
+  }
+  const base = (settings.openaiBaseUrl || 'https://aihubmix.com/v1').replace(/\/$/, '')
+  const res = await fetch(`${base}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${settings.openaiApiKey}`,
+    },
+    body: JSON.stringify({
+      model: settings.openaiModel || 'gpt-4o-mini',
+      messages,
+    }),
+  })
+  if (!res.ok) {
+    const t = await res.text().catch(() => '')
+    throw new Error(`AIHubMix ${res.status}: ${t.slice(0, 140)}`)
+  }
+  const data = (await res.json()) as {
+    choices?: Array<{ message?: { content?: string } }>
+  }
+  return data.choices?.[0]?.message?.content ?? ''
 }
 
 async function callGeminiDirect(
