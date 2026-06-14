@@ -59,6 +59,7 @@ code {
   flex: 1;
   overflow: auto;
   padding-bottom: 0;
+  position: relative; /* story scenes overlay this area, not the whole screen */
 }
 
 .bottom-nav {
@@ -1831,7 +1832,7 @@ input:focus, select:focus, textarea:focus {
    Visual-novel scene player
    ============================================================ */
 .vn {
-  position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column;
+  position: absolute; inset: 0; z-index: 60; display: flex; flex-direction: column;
   overflow: hidden; animation: vn-fade 0.25s ease;
 }
 @keyframes vn-fade { from { opacity: 0 } to { opacity: 1 } }
@@ -1903,12 +1904,15 @@ input:focus, select:focus, textarea:focus {
   50% { transform: translateY(-4px) scale(1.02); }
 }
 
-/* --- vocab word highlight + tooltip --- */
-.vn-word {
-  color: var(--color-primary); text-decoration: underline;
-  text-decoration-style: dotted; text-underline-offset: 3px;
-  cursor: pointer; font-weight: 600; position: relative;
+/* --- tappable words + tooltip --- */
+.vn-word { cursor: pointer; position: relative; border-radius: 4px; }
+.vn-word:active { background: rgba(124,92,191,0.14); }
+/* preset story words stand out as "new vocab" */
+.vn-word-key {
+  color: var(--color-primary); font-weight: 600;
+  text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px;
 }
+.vn-tip-load { opacity: 0.7; }
 .vn-word-tip {
   position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
   background: rgba(45,36,56,0.94); color: #fff; padding: 0.35rem 0.7rem;

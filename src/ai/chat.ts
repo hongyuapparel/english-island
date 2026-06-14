@@ -192,6 +192,32 @@ export function buildArticleSystemPrompt(
   return buildArticleDiscussionPrompt(profile, article)
 }
 
+// Quick word lookups (tap a word in a story) — cached so repeats are instant.
+const wordCache = new Map<string, string>()
+
+/** Get a short Chinese meaning for an English word as used in a sentence. */
+export async function lookupWord(
+  settings: AiSettings,
+  word: string,
+  context: string,
+): Promise<string> {
+  const key = word.toLowerCase()
+  const cached = wordCache.get(key)
+  if (cached) return cached
+  const raw = await callAi(settings, [
+    {
+      role: 'system',
+      content:
+        '你是英语词典助手。根据给定句子，给出这个英文单词在句中的简明中文释义，' +
+        '前面标注词性（如 n./v./adj./adv.）。只回复释义本身，不要例句、不要英文解释、不超过18个字。',
+    },
+    { role: 'user', content: `单词：${word}\n句子：${context}` },
+  ])
+  const meaning = raw.trim().replace(/^["'“”]+|["'“”]+$/g, '').slice(0, 40)
+  if (meaning) wordCache.set(key, meaning)
+  return meaning
+}
+
 export async function extractMemoryFromChat(
   settings: AiSettings,
   history: ChatMessage[],

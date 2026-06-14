@@ -121,34 +121,18 @@ function cacheSet(key: string, url: string) {
 let sharedAudio: HTMLAudioElement | null = null
 let unlocked = false
 
-let audioCtx: AudioContext | null = null
-
 function getAudio(): HTMLAudioElement {
   if (!sharedAudio) {
     sharedAudio = new Audio()
     sharedAudio.volume = 1
-    // Route through a gain node to boost loudness (Polly/OpenAI clips are quiet).
-    try {
-      const Ctx =
-        window.AudioContext ||
-        (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
-      if (Ctx) {
-        audioCtx = new Ctx()
-        const src = audioCtx.createMediaElementSource(sharedAudio)
-        const gain = audioCtx.createGain()
-        gain.gain.value = 2.4
-        src.connect(gain)
-        gain.connect(audioCtx.destination)
-      }
-    } catch {
-      audioCtx = null
-    }
+    sharedAudio.preload = 'auto'
+    // NOTE: we intentionally do NOT route through a WebAudio gain node.
+    // The free Polly voice is a cross-origin URL, and a cross-origin media
+    // element routed through WebAudio is muted by the browser's security
+    // model (it outputs silence). Playing the <audio> element directly is
+    // reliable on mobile (incl. iOS) once unlocked by a user gesture.
   }
   return sharedAudio
-}
-
-function resumeAudioCtx(): void {
-  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {})
 }
 
 const SILENT_WAV =
@@ -158,7 +142,6 @@ const SILENT_WAV =
 export function unlockNeuralAudio(): void {
   if (unlocked) return
   const a = getAudio()
-  resumeAudioCtx()
   a.src = SILENT_WAV
   a.play()
     .then(() => {
@@ -253,7 +236,6 @@ let settleCurrent: (() => void) | null = null
 function playUrl(url: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const a = getAudio()
-    resumeAudioCtx()
     let settled = false
     const finish = (ok: boolean) => {
       if (settled) return

@@ -6,6 +6,7 @@ import { VoiceHelper, isTTSSupported } from '../voice/speech'
 import { AGENT_NAME } from '../types'
 import { goTo } from '../app'
 import { WATERCOLOR_DEFS, sceneArt, foxArt, hasSceneArt } from '../art/watercolor'
+import { lookupWord } from '../ai/chat'
 
 const tts = new VoiceHelper()
 
@@ -208,30 +209,40 @@ export function renderIsland(): HTMLElement {
       return `<div class="vn-progress"><div class="vn-progress-fill" style="width:${pct}%"></div></div>`
     }
 
-    function highlightVocab(text: string): string {
-      let html = esc(text)
-      for (const [word, meaning] of vocabMap) {
-        const re = new RegExp(`\\b(${word})\\b`, 'gi')
-        html = html.replace(re, `<span class="vn-word" data-word="$1" data-meaning="${escAttr(meaning)}">$1</span>`)
-      }
-      return html
+    // Wrap every English word so any of them can be tapped for sound + meaning.
+    // Preset story words get a dotted underline so they stand out as "new".
+    function renderWords(text: string): string {
+      return text.replace(/[A-Za-z][A-Za-z'’-]*|[^A-Za-z]+/g, (tok) => {
+        if (!/^[A-Za-z]/.test(tok)) return esc(tok)
+        const lower = tok.toLowerCase().replace(/['’-]+$/g, '')
+        const isKey = vocabMap.has(lower)
+        return `<span class="vn-word${isKey ? ' vn-word-key' : ''}" data-w="${escAttr(tok)}">${esc(tok)}</span>`
+      })
     }
 
     function bindWordTaps() {
       el.querySelectorAll('.vn-word').forEach((w) => {
-        w.addEventListener('click', (e) => {
+        w.addEventListener('click', async (e) => {
           e.stopPropagation()
           const span = w as HTMLElement
-          const word = span.dataset.word ?? ''
-          const meaning = span.dataset.meaning ?? ''
+          const word = (span.dataset.w ?? '').replace(/[^A-Za-z'’-]/g, '')
+          if (!word) return
+          tts.speak(word, 'en-US', 0.82)
           el.querySelectorAll('.vn-word-tip').forEach((t) => t.remove())
           const tip = document.createElement('div')
           tip.className = 'vn-word-tip'
-          tip.innerHTML = `<b>${esc(word)}</b> ${esc(meaning)}`
-          span.style.position = 'relative'
+          const preset = vocabMap.get(word.toLowerCase())
+          tip.innerHTML = `<b>${esc(word)}</b> ${preset ? esc(preset) : '<span class="vn-tip-load">查询中…</span>'}`
           span.appendChild(tip)
-          tts.speak(word, 'en-US', 0.85)
-          setTimeout(() => tip.remove(), 2500)
+          if (!preset) {
+            try {
+              const meaning = await lookupWord(storage.getAiSettings(), word, current?.en ?? '')
+              if (tip.isConnected) tip.innerHTML = `<b>${esc(word)}</b> ${esc(meaning || '（未找到释义）')}`
+            } catch {
+              if (tip.isConnected) tip.innerHTML = `<b>${esc(word)}</b> <span class="vn-tip-load">查询失败，点🔊听发音</span>`
+            }
+          }
+          setTimeout(() => tip.remove(), 4600)
         })
       })
     }
@@ -307,7 +318,7 @@ export function renderIsland(): HTMLElement {
       typing = false
       const t = el.querySelector('#vn-text')
       if (t) {
-        t.innerHTML = highlightVocab(fullText)
+        t.innerHTML = renderWords(fullText)
         bindWordTaps()
       }
       const hint = el.querySelector('.vn-tap-hint') as HTMLElement | null
@@ -391,7 +402,7 @@ export function renderIsland(): HTMLElement {
             ${showZh && line?.zh ? `<div class="vn-zh">${esc(line.zh)}</div>` : ''}
             <div class="vn-foot">
               <button class="vn-say" id="vn-say">🔊 再听</button>
-              <span class="vn-word-hint">💡 点击<u>高亮单词</u>查看释义</span>
+              <span class="vn-word-hint">💡 点任意单词，听读音、查中文</span>
               ${opts ? '' : '<span class="vn-tap-hint">轻点屏幕继续 ▶</span>'}
             </div>
             ${
