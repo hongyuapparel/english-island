@@ -182,13 +182,19 @@ function browserSpeak(clean: string, lang: string, rate: number): void {
 }
 
 function browserSpeakChunks(chunks: string[], lang: string, rate: number): void {
+  // Chain via onend rather than queueing all at once — far more reliable on
+  // iOS Safari, which often stalls when many utterances are queued together.
   const v = pickBrowserVoice(lang)
-  for (const chunk of chunks) {
-    const utter = new SpeechSynthesisUtterance(chunk)
+  let i = 0
+  const speakNext = () => {
+    if (i >= chunks.length) return
+    const utter = new SpeechSynthesisUtterance(chunks[i++])
     utter.lang = lang
     utter.rate = rate
     utter.pitch = 1.05
     if (v) utter.voice = v
+    utter.onend = speakNext
     speechSynthesis.speak(utter)
   }
+  speakNext()
 }

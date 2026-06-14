@@ -93,6 +93,15 @@ export const storage = {
       save(KEYS.aiSettings, s)
       localStorage.setItem('ei_free_migrated_v1', '1')
     }
+    // v2: default read-aloud to the reliable system voice (iOS-safe);
+    // the free/neural voices stay available as an opt-in.
+    if (localStorage.getItem('ei_tts_system_v2') !== '1') {
+      if (s.ttsVoice === 'free') {
+        s.ttsVoice = 'system'
+        save(KEYS.aiSettings, s)
+      }
+      localStorage.setItem('ei_tts_system_v2', '1')
+    }
     return s
   },
   saveAiSettings: (settings: AiSettings) => save(KEYS.aiSettings, settings),
