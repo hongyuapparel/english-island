@@ -2,6 +2,7 @@ import { renderIsland } from './pages/island'
 import { renderReading } from './pages/reading'
 import { renderChat } from './pages/voice'
 import { renderMe } from './pages/me'
+import { unlockNeuralAudio } from './voice/neural-tts'
 import { APP_NAME_ZH } from './types'
 
 export type Route = 'island' | 'reading' | 'chat' | 'me'
@@ -71,6 +72,15 @@ export function initApp() {
   window.addEventListener('ei-navigate', (e) => {
     navigate((e as CustomEvent<Route>).detail)
   })
+
+  // Unlock mobile audio playback on the first tap so neural read-aloud works.
+  const unlock = () => {
+    unlockNeuralAudio()
+    window.removeEventListener('pointerdown', unlock)
+    window.removeEventListener('touchstart', unlock)
+  }
+  window.addEventListener('pointerdown', unlock)
+  window.addEventListener('touchstart', unlock)
 
   navigate(currentRoute)
 }
