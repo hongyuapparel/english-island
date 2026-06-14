@@ -8,8 +8,10 @@ import {
   mergeMemoryIntoProfile,
   summarizeSession,
   buildArticleSystemPrompt,
+  transcribeAudio,
 } from '../ai/chat'
 import { VoiceHelper, isSpeechSupported } from '../voice/speech'
+import { CallSession } from '../voice/recorder'
 import { articleById } from '../data/articles'
 import type { Article } from '../data/articles'
 import { goTo } from '../app'
@@ -20,6 +22,8 @@ let statusText = '点击麦克风开始说话'
 let interimText = ''
 /** Hands-free "phone call" mode: keep listening after each reply. */
 let callMode = false
+let callSession: CallSession | null = null
+let callErrors = 0
 
 /** When set, the chat is framed around discussing this article. */
 let discussionArticle: Article | null = null
@@ -56,6 +60,8 @@ export function renderChat(): HTMLElement {
     const messages = storage.getChatHistory()
     const autoRead = storage.getVoiceAutoRead()
     const supported = isSpeechSupported()
+    const aiset = storage.getAiSettings()
+    const callAvailable = supported || (aiset.provider === 'openai' && !!aiset.openaiApiKey)
 
     el.innerHTML = `
       <div class="voice-header">
@@ -102,16 +108,16 @@ export function renderChat(): HTMLElement {
           🔊 自动朗读 ${AGENT_NAME} 的回复
         </label>
         ${
-          supported
+          callAvailable
             ? `<label class="toggle-auto">
                  <input type="checkbox" id="call-mode" ${callMode ? 'checked' : ''} />
                  📞 连续对话（说完它自动接着听，像打电话）
                </label>`
-            : `<p class="hint">📞 此手机不支持网页语音输入；连续语音通话需用录音版（开发中）。可先打字聊。</p>`
+            : `<p class="hint">📞 想要"打电话式"连续对话：到「我的 → AI 设置」选 AIHubMix 并填 Key（iPhone 也能用）。</p>`
         }
         <div class="voice-buttons">
           <button class="btn btn-ghost btn-sm" id="summarize" ${messages.length === 0 || isLoading ? 'disabled' : ''}>结束并总结</button>
-          <button class="mic-btn ${voice.isListening ? 'active' : ''}" id="mic-btn" ${!supported || isLoading ? 'disabled' : ''} aria-label="说话">
+          <button class="mic-btn ${voice.isListening || (callMode && !!callSession) ? 'active' : ''}" id="mic-btn" ${isLoading || (!supported && !callMode) ? 'disabled' : ''} aria-label="说话">
             <span class="mic-icon">${voice.isListening ? '⏹' : '🎤'}</span>
           </button>
           <button class="btn btn-ghost btn-sm" id="clear-voice" ${messages.length === 0 ? 'disabled' : ''}>清空</button>
@@ -161,9 +167,9 @@ export function renderChat(): HTMLElement {
       callMode = (e.target as HTMLInputElement).checked
       if (callMode) {
         storage.setVoiceAutoRead(true)
-        startCallListening()
+        startCall()
       } else {
-        voice.stopListening()
+        cleanupCall()
         statusText = '点击麦克风开始说话'
         render()
       }
@@ -198,6 +204,10 @@ export function renderChat(): HTMLElement {
   }
 
   function toggleMic() {
+    if (callMode && callSession) {
+      callSession.stopCurrent() // end this spoken turn now
+      return
+    }
     if (voice.isListening) {
       voice.stopListening()
       statusText = '点击麦克风开始说话'
@@ -231,43 +241,90 @@ export function renderChat(): HTMLElement {
     render()
   }
 
-  let callErrors = 0
-  function startCallListening() {
-    if (!callMode || isLoading) return
-    statusText = '📞 在听你说…（再点开关结束通话）'
-    interimText = ''
-    render()
-    voice.startListening(
-      (text, isFinal) => {
-        interimText = isFinal ? '' : text
-        if (isFinal && text.trim()) {
-          callErrors = 0
-          voice.stopListening()
-          sendMessage(text.trim())
-        } else {
-          render()
-        }
-      },
-      (err) => {
-        if (!callMode) {
-          statusText = err
-          render()
-          return
-        }
+  async function startCall() {
+    const settings = storage.getAiSettings()
+    const useWhisper = settings.provider === 'openai' && !!settings.openaiApiKey
+    if (useWhisper) {
+      try {
+        callSession = await CallSession.start()
+      } catch {
+        callMode = false
+        statusText = '无法使用麦克风，请在系统里允许麦克风权限'
+        render()
+        return
+      }
+    } else if (!isSpeechSupported()) {
+      callMode = false
+      statusText = '此手机不支持网页语音输入；在「我的→AI设置」填入 AIHubMix Key 即可用录音通话'
+      render()
+      return
+    }
+    callErrors = 0
+    callLoop()
+  }
+
+  function cleanupCall() {
+    callSession?.end()
+    callSession = null
+    voice.stopListening()
+  }
+
+  /** Capture one spoken turn → text, via Whisper (AIHubMix) or speech recognition. */
+  function listenOnce(): Promise<string> {
+    const settings = storage.getAiSettings()
+    if (callSession) {
+      return (async () => {
+        const blob = await callSession!.recordUtterance()
+        if (!blob || !callMode) return ''
+        statusText = '✍️ 识别中…'
+        render()
+        return await transcribeAudio(blob, settings)
+      })()
+    }
+    return new Promise((resolve) => {
+      voice.startListening(
+        (t, isFinal) => {
+          interimText = isFinal ? '' : t
+          if (isFinal) {
+            voice.stopListening()
+            resolve(t)
+          } else {
+            render()
+          }
+        },
+        () => resolve(''),
+        'en-US',
+      )
+    })
+  }
+
+  async function callLoop() {
+    while (callMode) {
+      statusText = '📞 在听你说…（说完停顿一下，或点麦克风结束）'
+      interimText = ''
+      render()
+      let text = ''
+      try {
+        text = await listenOnce()
+      } catch (err) {
         callErrors += 1
         if (callErrors > 3) {
           callMode = false
-          statusText = `通话已结束：${err}`
-          render()
-          return
+          statusText = `通话结束：${err instanceof Error ? err.message : ''}`
+          break
         }
-        setTimeout(() => {
-          if (callMode) startCallListening()
-        }, 700)
-      },
-      'en-US',
-    )
-    render()
+        continue
+      }
+      if (!callMode) break
+      if (!text.trim()) continue
+      callErrors = 0
+      await sendMessage(text.trim())
+    }
+    cleanupCall()
+    if (!voice.isListening) {
+      statusText = '点击麦克风开始说话'
+      render()
+    }
   }
 
   async function sendMessage(text: string) {
@@ -313,7 +370,6 @@ export function renderChat(): HTMLElement {
         statusText = `📞 ${AGENT_NAME} 在说…`
         render()
         await voice.speakAwait(reply)
-        if (callMode) startCallListening()
       } else if (storage.getVoiceAutoRead()) {
         voice.speak(reply)
       }

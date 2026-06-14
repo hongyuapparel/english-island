@@ -275,6 +275,36 @@ export function mergeMemoryIntoProfile(
   }
 }
 
+/** Transcribe recorded speech via the OpenAI-compatible Whisper endpoint (AIHubMix). */
+export async function transcribeAudio(
+  blob: Blob,
+  settings: AiSettings,
+): Promise<string> {
+  if (!settings.openaiApiKey) throw new Error('需要 AIHubMix / OpenAI Key 才能识别语音')
+  const base = (settings.openaiBaseUrl || 'https://aihubmix.com/v1').replace(/\/$/, '')
+  const ext = blob.type.includes('mp4')
+    ? 'mp4'
+    : blob.type.includes('webm')
+      ? 'webm'
+      : blob.type.includes('mpeg')
+        ? 'mp3'
+        : 'webm'
+  const form = new FormData()
+  form.append('file', blob, `speech.${ext}`)
+  form.append('model', 'whisper-1')
+  const res = await fetch(`${base}/audio/transcriptions`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${settings.openaiApiKey}` },
+    body: form,
+  })
+  if (!res.ok) {
+    const t = await res.text().catch(() => '')
+    throw new Error(`语音识别失败 ${res.status}: ${t.slice(0, 100)}`)
+  }
+  const data = (await res.json().catch(() => ({}))) as { text?: string }
+  return (data.text ?? '').trim()
+}
+
 export async function fetchOllamaModels(baseUrl: string): Promise<string[]> {
   const response = await fetch(
     `/api/ollama/models?baseUrl=${encodeURIComponent(baseUrl)}`,
