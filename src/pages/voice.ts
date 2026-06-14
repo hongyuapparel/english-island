@@ -3,7 +3,7 @@ import { FOX_ICON } from '../asset'
 import { AGENT_NAME } from '../types'
 import { storage } from '../storage'
 import {
-  sendChatMessage,
+  sendChatMessageStream,
   extractMemoryFromChat,
   mergeMemoryIntoProfile,
   summarizeSession,
@@ -347,31 +347,65 @@ export function renderChat(): HTMLElement {
       const systemOverride = discussionArticle
         ? buildArticleSystemPrompt(profile, discussionArticle)
         : undefined
-      const reply = await sendChatMessage(
+      const history = messages.slice(0, -1)
+
+      // Streamed assistant message: render tokens as they arrive, and in call
+      // mode start speaking each finished sentence so audio begins sooner.
+      const assistant = {
+        id: crypto.randomUUID(),
+        role: 'assistant' as const,
+        content: '',
+        timestamp: Date.now(),
+      }
+      messages.push(assistant)
+      isLoading = false
+      let speakChain = Promise.resolve()
+      let sbuf = ''
+      const flush = (final: boolean) => {
+        if (!callMode) return
+        const re = /^[\s\S]*?[.!?。！？]["')\]]?(\s|$)/
+        let m: RegExpMatchArray | null
+        while ((m = sbuf.match(re)) && m[0].trim().length > 1) {
+          const sentence = sbuf.slice(0, m[0].length).trim()
+          sbuf = sbuf.slice(m[0].length)
+          if (sentence) speakChain = speakChain.then(() => voice.speakAwait(sentence))
+        }
+        if (final && sbuf.trim()) {
+          const rest = sbuf.trim()
+          sbuf = ''
+          speakChain = speakChain.then(() => voice.speakAwait(rest))
+        }
+      }
+
+      await sendChatMessageStream(
         profile,
         storage.getStats(),
         storage.getErrorNotes(),
         storage.getAiSettings(),
-        messages.slice(0, -1),
+        history,
         text,
         true,
         systemOverride,
+        (delta) => {
+          assistant.content += delta
+          if (callMode) {
+            sbuf += delta
+            flush(false)
+          }
+          storage.saveChatHistory(messages)
+          if (!callMode) statusText = `${AGENT_NAME} 在回复…`
+          render()
+        },
       )
-      messages.push({
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: reply,
-        timestamp: Date.now(),
-      })
       storage.saveChatHistory(messages)
 
       if (callMode) {
-        isLoading = false
         statusText = `📞 ${AGENT_NAME} 在说…`
         render()
-        await voice.speakAwait(reply)
+        flush(true)
+        await speakChain
       } else if (storage.getVoiceAutoRead()) {
-        voice.speak(reply)
+        voice.speak(assistant.content)
       }
 
       const userCount = messages.filter((m) => m.role === 'user').length
@@ -385,12 +419,17 @@ export function renderChat(): HTMLElement {
         })
       }
     } catch (err) {
-      messages.push({
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: friendlyError(err),
-        timestamp: Date.now(),
-      })
+      const last = messages[messages.length - 1]
+      if (last && last.role === 'assistant' && !last.content) {
+        last.content = friendlyError(err)
+      } else {
+        messages.push({
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: friendlyError(err),
+          timestamp: Date.now(),
+        })
+      }
       storage.saveChatHistory(messages)
     } finally {
       isLoading = false

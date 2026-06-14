@@ -275,6 +275,90 @@ export function mergeMemoryIntoProfile(
   }
 }
 
+/** Like sendChatMessage, but streams the reply token-by-token via onDelta
+ *  when the provider is OpenAI-compatible (AIHubMix). Falls back to a single
+ *  delivery for other providers. Returns the full reply. */
+export async function sendChatMessageStream(
+  profile: UserProfile,
+  stats: AgentStats,
+  errorNotes: ErrorNote[],
+  settings: AiSettings,
+  history: ChatMessage[],
+  userMessage: string,
+  voiceMode: boolean,
+  systemOverride: string | undefined,
+  onDelta: (delta: string) => void,
+): Promise<string> {
+  const systemPrompt =
+    systemOverride ??
+    buildAgentSystemPrompt(profile, stats, errorNotes, { voiceMode })
+  const messages: ApiMessage[] = [
+    { role: 'system', content: systemPrompt },
+    ...history.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+    { role: 'user', content: userMessage },
+  ]
+  if (settings.provider === 'openai' && settings.openaiApiKey) {
+    return streamOpenAiCompletion(settings, messages, onDelta)
+  }
+  const full = await callAi(settings, messages)
+  if (full) onDelta(full)
+  return full
+}
+
+async function streamOpenAiCompletion(
+  settings: AiSettings,
+  messages: ApiMessage[],
+  onDelta: (delta: string) => void,
+): Promise<string> {
+  const base = (settings.openaiBaseUrl || 'https://aihubmix.com/v1').replace(/\/$/, '')
+  const res = await fetch(`${base}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${settings.openaiApiKey}`,
+    },
+    body: JSON.stringify({
+      model: settings.openaiModel || 'gpt-4o-mini',
+      messages,
+      stream: true,
+    }),
+  })
+  if (!res.ok || !res.body) {
+    const t = await res.text().catch(() => '')
+    throw new Error(`AIHubMix ${res.status}: ${t.slice(0, 140)}`)
+  }
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let full = ''
+  let buf = ''
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buf += decoder.decode(value, { stream: true })
+    const lines = buf.split('\n')
+    buf = lines.pop() ?? ''
+    for (const line of lines) {
+      const t = line.trim()
+      if (!t.startsWith('data:')) continue
+      const payload = t.slice(5).trim()
+      if (!payload || payload === '[DONE]') continue
+      try {
+        const j = JSON.parse(payload) as {
+          choices?: Array<{ delta?: { content?: string } }>
+        }
+        const delta = j.choices?.[0]?.delta?.content
+        if (delta) {
+          full += delta
+          onDelta(delta)
+        }
+      } catch {
+        /* ignore keep-alive / partial */
+      }
+    }
+  }
+  return full
+}
+
 /** Transcribe recorded speech via the OpenAI-compatible Whisper endpoint (AIHubMix). */
 export async function transcribeAudio(
   blob: Blob,
