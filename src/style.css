@@ -1718,9 +1718,24 @@ input:focus, select:focus, textarea:focus {
 /* ============================================================
    English Island — island map + visual-novel scenes (v2)
    ============================================================ */
-.island-page { height: 100%; display: flex; flex-direction: column; padding: 0; }
+/* The island page now hosts the Phaser 2D game as the base layer */
+.island-page {
+  height: 100%; position: relative; overflow: hidden; padding: 0;
+  background: #3e7ec9; /* ocean colour shown before Phaser loads */
+}
 
-/* --- Island map scene --- */
+/* Phaser canvas mount — fills the whole page */
+#island-game-mount {
+  position: absolute; inset: 0; z-index: 1;
+}
+#island-game-mount canvas { display: block; width: 100% !important; height: 100% !important; }
+
+/* Scene overlay — covers Phaser when a VN scene is playing */
+.island-scene-layer {
+  position: absolute; inset: 0; z-index: 100; display: none;
+}
+
+/* --- Legacy island map scene (kept for reference / fallback) --- */
 .island-scene {
   position: relative; flex: 1; min-height: 0; overflow: hidden;
   background: linear-gradient(180deg, #bfe9ff 0%, #d8f1ff 34%, #ffe9c4 36%, #bfe7a0 52%, #a6dd8e 100%);
@@ -1746,9 +1761,12 @@ input:focus, select:focus, textarea:focus {
 .isl-trails path { fill: none; stroke: rgba(255,255,255,0.75); stroke-width: 1.1; stroke-linecap: round; stroke-dasharray: 0.2 3.2; }
 
 .isl-hud {
-  position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between;
-  align-items: center; padding: calc(0.6rem + env(safe-area-inset-top)) 0.9rem 0.6rem;
+  position: absolute; top: 0; left: 0; right: 0; z-index: 10; display: flex;
+  justify-content: space-between; align-items: center;
+  padding: calc(0.6rem + env(safe-area-inset-top)) 0.9rem 0.6rem;
+  pointer-events: none; /* don't block Phaser touch input */
 }
+.isl-hud * { pointer-events: auto; }
 .isl-title { font-family: var(--font-display); font-weight: 700; font-size: 1.1rem; color: #2d4a6b; text-shadow: 0 1px 0 rgba(255,255,255,0.6); }
 .isl-coins { background: rgba(255,255,255,0.92); border-radius: 999px; padding: 0.3rem 0.75rem; font-weight: 600; box-shadow: 0 3px 10px rgba(0,0,0,0.12); }
 .isl-coins b { color: var(--color-accent); }
@@ -1782,7 +1800,11 @@ input:focus, select:focus, textarea:focus {
 .spot-locked .spot-label { color: #9b8f86; }
 
 /* --- Quest CTA / banner --- */
-.island-banner { padding: 0.7rem 0.9rem calc(0.7rem + env(safe-area-inset-bottom)); background: var(--color-bg); }
+.island-banner {
+  position: absolute; bottom: 0; left: 0; right: 0; z-index: 10;
+  padding: 0.7rem 0.9rem calc(0.7rem + env(safe-area-inset-bottom));
+  background: linear-gradient(to top, rgba(254,249,243,0.97) 60%, transparent);
+}
 .btn-quest {
   width: 100%; display: flex; align-items: center; gap: 0.7rem; cursor: pointer;
   background: linear-gradient(135deg, #ff9a52, #ff7d3a); color: #fff; border: none;
