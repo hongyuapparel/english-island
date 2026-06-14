@@ -126,9 +126,9 @@ export const DEFAULT_AI_SETTINGS: AiSettings = {
   ollamaModel: 'qwen2.5:7b',
   geminiApiKey: '',
   geminiModel: 'gemini-2.0-flash',
-  ttsVoice: 'system',
+  ttsVoice: 'free',
   geminiVoiceName: 'Sulafat',
-  freeVoice: 'nova',
+  freeVoice: 'Joanna',
 }
 
 export interface MemoryExtraction {

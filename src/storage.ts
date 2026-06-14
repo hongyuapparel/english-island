@@ -102,6 +102,15 @@ export const storage = {
       }
       localStorage.setItem('ei_tts_system_v2', '1')
     }
+    // v3: switch free voice to Amazon Polly (reliable on mobile incl. iOS) and
+    // make it the default read-aloud again; old Pollinations voice ids are reset.
+    if (localStorage.getItem('ei_tts_polly_v3') !== '1') {
+      const pollyNames = ['Joanna', 'Matthew', 'Amy', 'Brian', 'Emma', 'Ivy']
+      if (!pollyNames.includes(s.freeVoice)) s.freeVoice = 'Joanna'
+      s.ttsVoice = 'free'
+      save(KEYS.aiSettings, s)
+      localStorage.setItem('ei_tts_polly_v3', '1')
+    }
     return s
   },
   saveAiSettings: (settings: AiSettings) => save(KEYS.aiSettings, settings),
