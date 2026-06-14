@@ -6,7 +6,8 @@ import { VoiceHelper, isTTSSupported } from '../voice/speech'
 import { AGENT_NAME } from '../types'
 import { goTo } from '../app'
 import { WATERCOLOR_DEFS, sceneArt, foxArt, hasSceneArt } from '../art/watercolor'
-import { lookupWord } from '../ai/chat'
+import { lookupWord, transcribeAudio } from '../ai/chat'
+import { CallSession } from '../voice/recorder'
 
 const tts = new VoiceHelper()
 
@@ -24,6 +25,19 @@ function spotState(spot: Spot): SpotState {
 export function renderIsland(): HTMLElement {
   const el = document.createElement('div')
   el.className = 'page island-page'
+
+  // One mic session per visit to a scene; released when the page goes away
+  // (e.g. switching tabs) so the microphone never stays open in the background.
+  let activeRecorder: CallSession | null = null
+  const pageObserver = new MutationObserver(() => {
+    if (!document.body.contains(el)) {
+      activeRecorder?.end()
+      activeRecorder = null
+      tts.stopSpeaking()
+      pageObserver.disconnect()
+    }
+  })
+  pageObserver.observe(document.body, { childList: true, subtree: true })
 
   function map() {
     tts.stopSpeaking()
@@ -186,6 +200,13 @@ export function renderIsland(): HTMLElement {
     let fullText = ''
     let shown = 0
 
+    // read-aloud gate: you must read each line well enough to advance
+    let passed = false
+    let recording = false
+    let linesRead = 0
+    let scoreSum = 0
+    let bestStars = 0
+
     const bg = `scene-bg-${scene.spotId}`
     const vocabMap = new Map(scene.vocab.map((v) => [v.word.toLowerCase(), v.meaning]))
 
@@ -254,6 +275,7 @@ export function renderIsland(): HTMLElement {
         return
       }
       resolved = false
+      passed = false
       playerEcho = null
       current = { who: step.speaker, name: step.name, emoji: step.emoji, en: step.en, zh: step.zh }
       choosing = step.kind === 'choice'
@@ -275,6 +297,7 @@ export function renderIsland(): HTMLElement {
       current = { who: step.speaker, name: step.name, emoji: step.emoji, en: opt.reply.en, zh: opt.reply.zh }
       choosing = false
       resolved = true
+      passed = false
       speak(opt.reply.en)
       paintPlay()
       startTyper()
@@ -287,11 +310,22 @@ export function renderIsland(): HTMLElement {
       }
       const step = scene.steps[index]
       if (step?.kind === 'choice' && !resolved) return
+      if (!choosing && !passed) return // must read this line aloud first
       next()
+    }
+
+    function leaveScene() {
+      tts.stopSpeaking()
+      stopTyper()
+      activeRecorder?.end()
+      activeRecorder = null
+      map()
     }
 
     function finish() {
       stopTyper()
+      activeRecorder?.end()
+      activeRecorder = null
       phase = 'reward'
       if (!isReplay) {
         storage.completeScene(scene.id, scene.reward)
@@ -333,6 +367,94 @@ export function renderIsland(): HTMLElement {
     function updateText() {
       const t = el.querySelector('#vn-text')
       if (t) t.textContent = fullText.slice(0, shown)
+    }
+
+    // ---- read-aloud "pass to continue" challenge ----
+    async function ensureRecorder(): Promise<CallSession> {
+      if (!activeRecorder) activeRecorder = await CallSession.start()
+      return activeRecorder
+    }
+
+    function starsFor(score: number): number {
+      return score >= 0.9 ? 3 : score >= 0.75 ? 2 : score >= 0.55 ? 1 : 0
+    }
+
+    async function doRead() {
+      if (recording) {
+        activeRecorder?.stopCurrent()
+        return
+      }
+      const settings = storage.getAiSettings()
+      const status = el.querySelector('#read-status') as HTMLElement | null
+      const micBtn = el.querySelector('#vn-mic') as HTMLElement | null
+      if (!status || !micBtn) return
+      if (!settings.openaiApiKey) {
+        status.innerHTML =
+          '需要 AIHubMix Key 才能自动评分。<button class="vn-skip" id="self-pass">我已读，过关 ▶</button>'
+        status.querySelector('#self-pass')?.addEventListener('click', () => passLine(1))
+        return
+      }
+      try {
+        tts.stopSpeaking()
+        recording = true
+        micBtn.classList.add('rec')
+        micBtn.textContent = '● 录音中…读完自动停'
+        status.textContent = '🎤 在听你读…'
+        const rec = await ensureRecorder()
+        const blob = await rec.recordUtterance(900, 9000)
+        recording = false
+        micBtn.classList.remove('rec')
+        micBtn.textContent = '🎤 再读一遍'
+        if (!blob) {
+          status.textContent = '没听清，凑近一点再读一遍 🎤'
+          return
+        }
+        status.textContent = '⏳ 评分中…'
+        const said = await transcribeAudio(blob, settings)
+        showScore(scoreReading(current?.en ?? '', said))
+      } catch (err) {
+        recording = false
+        micBtn.classList.remove('rec')
+        micBtn.textContent = '🎤 读这句过关'
+        status.innerHTML =
+          '录音/识别失败：' +
+          esc(err instanceof Error ? err.message : '请允许麦克风权限') +
+          ' <button class="vn-skip" id="skip-line">先跳过 ▶</button>'
+        status.querySelector('#skip-line')?.addEventListener('click', () => passLine(0))
+      }
+    }
+
+    function showScore(res: ReadResult) {
+      const status = el.querySelector('#read-status') as HTMLElement | null
+      if (!status) return
+      const pct = Math.round(res.score * 100)
+      const stars = starsFor(res.score)
+      const wordsHtml = res.words
+        .map((w) => `<span class="rd-w ${w.ok ? 'ok' : 'bad'}">${esc(w.w)}</span>`)
+        .join(' ')
+      if (stars >= 1) {
+        status.innerHTML = `<div class="rd-line">${wordsHtml}</div>
+          <div class="rd-result good">${'⭐'.repeat(stars)} ${pct}分 · 读得真棒！<b>轻点屏幕继续 ▶</b></div>`
+        passLine(res.score)
+      } else {
+        status.innerHTML = `<div class="rd-line">${wordsHtml}</div>
+          <div class="rd-result">${pct}分 · 红色的词再读清楚点 🎤
+          <button class="vn-skip" id="skip-line">太难了，先跳过 ▶</button></div>`
+        status.querySelector('#skip-line')?.addEventListener('click', () => passLine(res.score))
+      }
+    }
+
+    function passLine(score: number) {
+      if (passed) return
+      passed = true
+      linesRead += 1
+      scoreSum += score
+      bestStars = Math.max(bestStars, starsFor(score))
+      const micBtn = el.querySelector('#vn-mic') as HTMLElement | null
+      if (micBtn) {
+        micBtn.textContent = '✓ 过关 · 轻点屏幕继续 ▶'
+        micBtn.classList.add('done')
+      }
     }
 
     function sprite(line: Line | null): string {
@@ -401,9 +523,8 @@ export function renderIsland(): HTMLElement {
             <div class="vn-text" id="vn-text"></div>
             ${showZh && line?.zh ? `<div class="vn-zh">${esc(line.zh)}</div>` : ''}
             <div class="vn-foot">
-              <button class="vn-say" id="vn-say">🔊 再听</button>
-              <span class="vn-word-hint">💡 点任意单词，听读音、查中文</span>
-              ${opts ? '' : '<span class="vn-tap-hint">轻点屏幕继续 ▶</span>'}
+              <button class="vn-say" id="vn-say">🔊 听一遍</button>
+              <span class="vn-word-hint">💡 点单词查中文</span>
             </div>
             ${
               opts
@@ -413,7 +534,10 @@ export function renderIsland(): HTMLElement {
                         `<button class="vn-choice" data-i="${i}"><span class="ce">${esc(o.en)}</span><span class="cz">${esc(o.zh)}</span></button>`,
                     )
                     .join('')}</div>`
-                : ''
+                : `<div class="vn-read">
+                     <button class="vn-mic ${passed ? 'done' : ''}" id="vn-mic">${passed ? '✓ 过关 · 轻点屏幕继续 ▶' : '🎤 读这句过关'}</button>
+                     <div class="vn-read-status" id="read-status"></div>
+                   </div>`
             }
           </div>
         </div>
@@ -425,9 +549,15 @@ export function renderIsland(): HTMLElement {
       })
       el.querySelector('#leave2')?.addEventListener('click', (e) => {
         e.stopPropagation()
-        tts.stopSpeaking()
-        stopTyper()
-        map()
+        leaveScene()
+      })
+      el.querySelector('#vn-mic')?.addEventListener('click', (e) => {
+        e.stopPropagation()
+        if (passed) {
+          advance()
+          return
+        }
+        doRead()
       })
       el.querySelector('#zh-toggle')?.addEventListener('click', (e) => {
         e.stopPropagation()
@@ -462,6 +592,11 @@ export function renderIsland(): HTMLElement {
           <div class="vn-reward">
             <div class="reward-burst">🎉</div>
             <h1>${isReplay ? '重温完成' : '完成！'}</h1>
+            ${
+              linesRead > 0
+                ? `<div class="reward-read">🎤 你大声读对了 ${linesRead} 句，平均 ${Math.round((scoreSum / linesRead) * 100)} 分</div>`
+                : ''
+            }
             ${
               isReplay
                 ? '<p class="hint">重玩不再重复发奖励哦</p>'
@@ -611,4 +746,34 @@ function esc(s: string): string {
 }
 function escAttr(s: string): string {
   return esc(s).replace(/"/g, '&quot;')
+}
+
+// --- read-aloud scoring (compare what the learner said to the target line) ---
+function normalizeWords(s: string): string[] {
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9'\s]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+}
+
+interface ReadResult {
+  score: number
+  words: { w: string; ok: boolean }[]
+}
+
+function scoreReading(target: string, said: string): ReadResult {
+  const tw = normalizeWords(target)
+  const saidWords = normalizeWords(said)
+  const bag = new Set(saidWords)
+  let matched = 0
+  const words = tw.map((w) => {
+    const ok =
+      bag.has(w) ||
+      saidWords.some((x) => x.length > 3 && w.length > 3 && (x.includes(w) || w.includes(x)))
+    if (ok) matched++
+    return { w, ok }
+  })
+  const score = tw.length ? matched / tw.length : 1
+  return { score, words }
 }
