@@ -46,6 +46,7 @@ export const OPENAI_VOICES: { name: string; zh: string }[] = [
 
 export function useNeuralVoice(settings: AiSettings): boolean {
   if (settings.ttsVoice === 'system') return false
+  if (settings.openaiApiKey) return true // AIHubMix works for chat → use it for voice too
   if (settings.ttsVoice === 'free') return true // no key needed
   if (settings.ttsVoice === 'openai') return !!settings.openaiApiKey
   return !!settings.geminiApiKey
@@ -82,6 +83,10 @@ async function getAudioUrl(
   settings: AiSettings,
   style: TtsStyle,
 ): Promise<string> {
+  // Prefer AIHubMix whenever a key is present: it returns an MP3 we play as a
+  // same-origin blob (reliable on mobile, incl. iOS) and avoids the free Polly
+  // endpoint, which can be unreachable on some networks (e.g. mainland China).
+  if (settings.openaiApiKey && settings.ttsVoice !== 'system') return fetchOpenAiTts(text, settings)
   if (settings.ttsVoice === 'free') return freeVoiceUrl(text, settings)
   if (settings.ttsVoice === 'openai') return fetchOpenAiTts(text, settings)
   return fetchTts(text, settings, style)
@@ -141,6 +146,17 @@ const SILENT_WAV =
 /** Call from a real user gesture once so later programmatic plays work on iOS. */
 export function unlockNeuralAudio(): void {
   if (unlocked) return
+  // Prime the system speech engine inside the user gesture, so a later
+  // (asynchronous) fallback to the system voice is allowed to make sound on iOS.
+  try {
+    if ('speechSynthesis' in window) {
+      const u = new SpeechSynthesisUtterance(' ')
+      u.volume = 0
+      window.speechSynthesis.speak(u)
+    }
+  } catch {
+    /* ignore */
+  }
   const a = getAudio()
   a.src = SILENT_WAV
   a.play()

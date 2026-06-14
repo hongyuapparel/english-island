@@ -99,7 +99,9 @@ export function renderSettings(): HTMLElement {
 
       <div class="provider-section full">
         <h3>🔊 朗读语音</h3>
-        <p class="hint">自然语音用真人级 Polly 音色，免费无需 Key，手机上也能播。若某台手机没声音，改用「系统语音」即可。</p>
+        <p class="hint">填了 AIHubMix Key 时会自动用它朗读（最稳定、手机可靠）。没 Key 时用免费 Polly；若手机没声音就改「系统语音」。</p>
+        <button type="button" class="btn btn-primary" id="sound-test" style="width:100%;margin-bottom:0.6rem;">🔊 点我测试声音</button>
+        <div id="sound-test-status" class="status-msg" style="margin-bottom:0.6rem;"></div>
         <div class="field">
           <label for="ttsVoice">语音类型</label>
           <select id="ttsVoice">
@@ -229,6 +231,38 @@ export function renderSettings(): HTMLElement {
     } else {
       previewVoice.speak(PREVIEW_LINE, 'en-US', 0.9)
       status.textContent = ''
+    }
+  })
+
+  el.querySelector('#sound-test')!.addEventListener('click', () => {
+    const s = readForm()
+    const status = el.querySelector('#sound-test-status')!
+    const path =
+      s.ttsVoice === 'system'
+        ? '系统语音'
+        : s.openaiApiKey
+          ? 'AIHubMix 语音'
+          : s.ttsVoice === 'free'
+            ? '免费 Polly'
+            : s.ttsVoice === 'openai'
+              ? 'AIHubMix 语音'
+              : 'Gemini 语音'
+    status.className = 'status-msg'
+    status.textContent = `▶ 用「${path}」播放中…请把手机音量调大、关掉侧边静音键`
+    if (useNeuralVoice(s)) {
+      neuralSpeak(PREVIEW_LINE, s, 'warm')
+        .then(() => {
+          status.textContent = `✓ 播放完成（${path}）。若仍没听到：检查手机侧边静音键和媒体音量`
+          status.className = 'status-msg success'
+        })
+        .catch((err) => {
+          status.textContent = `❌ ${path}失败（${err instanceof Error ? err.message : err}），已改用系统语音`
+          status.className = 'status-msg error'
+          previewVoice.speak(PREVIEW_LINE, 'en-US', 0.9)
+        })
+    } else {
+      previewVoice.speak(PREVIEW_LINE, 'en-US', 0.9)
+      status.textContent = `▶ 用系统语音播放中…若没听到就检查静音键/音量`
     }
   })
 
