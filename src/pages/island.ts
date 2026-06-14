@@ -5,6 +5,7 @@ import { storage } from '../storage'
 import { VoiceHelper, isTTSSupported } from '../voice/speech'
 import { AGENT_NAME } from '../types'
 import { goTo } from '../app'
+import { WATERCOLOR_DEFS, sceneArt, foxArt, hasSceneArt } from '../art/watercolor'
 
 const tts = new VoiceHelper()
 
@@ -191,11 +192,14 @@ export function renderIsland(): HTMLElement {
       if (isTTSSupported() && storage.getVoiceAutoRead()) tts.speak(en, 'en-US', 0.92)
     }
 
-    function decorHtml(): string {
+    const painted = hasSceneArt(scene.spotId)
+
+    function backdropHtml(): string {
+      // Painted watercolor scenes carry their own atmosphere; elsewhere we
+      // sprinkle the floating emoji decorations over the CSS gradient.
+      if (painted) return WATERCOLOR_DEFS + sceneArt(scene.spotId)
       const emojis = SCENE_DECOR[scene.spotId] ?? ['✨']
-      return emojis.map((e, i) =>
-        `<span class="vn-decor vn-decor-${i}">${e}</span>`
-      ).join('')
+      return emojis.map((e, i) => `<span class="vn-decor vn-decor-${i}">${e}</span>`).join('')
     }
 
     function progressHtml(): string {
@@ -322,17 +326,21 @@ export function renderIsland(): HTMLElement {
 
     function sprite(line: Line | null): string {
       if (!line) return ''
-      if (line.who === 'fox')
+      if (line.who === 'fox') {
+        if (painted) return `<div class="vn-sprite-wrap vn-breathe">${foxArt()}</div>`
         return `<img src="${FOX_ICON}" class="vn-sprite vn-breathe" alt="${AGENT_NAME}" />`
+      }
       if (line.who === 'resident')
         return `<span class="vn-sprite vn-sprite-emoji vn-breathe">${line.emoji ?? '🙂'}</span>`
+      // narration: on painted scenes the backdrop is the picture, so no big emoji
+      if (painted) return ''
       return `<span class="vn-sprite vn-sprite-scene">${scene.emoji}</span>`
     }
 
     function paintIntro() {
       el.innerHTML = `
-        <div class="vn ${bg}">
-          ${decorHtml()}
+        <div class="vn ${bg} ${painted ? 'vn-painted' : ''}">
+          ${backdropHtml()}
           <div class="vn-intro">
             <div class="vn-intro-emoji vn-pop">${scene.emoji}</div>
             <h1>${esc(scene.titleZh)}</h1>
@@ -363,8 +371,8 @@ export function renderIsland(): HTMLElement {
       const opts = choosing && step.kind === 'choice' ? step.options : null
 
       el.innerHTML = `
-        <div class="vn ${bg}">
-          ${decorHtml()}
+        <div class="vn ${bg} ${painted ? 'vn-painted' : ''}">
+          ${backdropHtml()}
           ${progressHtml()}
           <div class="vn-top">
             <button class="vn-icon-btn" id="leave2">←</button>
