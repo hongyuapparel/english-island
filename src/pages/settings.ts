@@ -99,7 +99,7 @@ export function renderSettings(): HTMLElement {
 
       <div class="provider-section full">
         <h3>🔊 朗读语音</h3>
-        <p class="hint">填了 AIHubMix Key 时会自动用它朗读（最稳定、手机可靠）。没 Key 时用免费 Polly；若手机没声音就改「系统语音」。</p>
+        <p class="hint">用你选的语音朗读。Gemini 的 Sulafat 是热情女声（需 Gemini Key）。若某句没声音会自动退回系统语音；想最稳就选「系统语音」。</p>
         <button type="button" class="btn btn-primary" id="sound-test" style="width:100%;margin-bottom:0.6rem;">🔊 点我测试声音</button>
         <div id="sound-test-status" class="status-msg" style="margin-bottom:0.6rem;"></div>
         <div class="field">
@@ -240,13 +240,11 @@ export function renderSettings(): HTMLElement {
     const path =
       s.ttsVoice === 'system'
         ? '系统语音'
-        : s.openaiApiKey
-          ? 'AIHubMix 语音'
-          : s.ttsVoice === 'free'
-            ? '免费 Polly'
-            : s.ttsVoice === 'openai'
-              ? 'AIHubMix 语音'
-              : 'Gemini 语音'
+        : s.ttsVoice === 'free'
+          ? '免费 Polly'
+          : s.ttsVoice === 'openai'
+            ? 'AIHubMix 语音'
+            : 'Gemini 语音'
     status.className = 'status-msg'
     status.textContent = `▶ 用「${path}」播放中…请把手机音量调大、关掉侧边静音键`
     if (useNeuralVoice(s)) {

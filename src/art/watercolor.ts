@@ -73,22 +73,22 @@ function beachArt(): string {
     </g>
 
     <!-- distant headland -->
-    <path d="M-20 150 C60 130 120 138 180 150 L180 175 L-20 175 Z" fill="#b7c1ac" opacity="0.7" filter="url(#wcSoft)"/>
+    <path d="M-20 138 C60 120 120 128 180 138 L180 160 L-20 160 Z" fill="#b7c1ac" opacity="0.7" filter="url(#wcSoft)"/>
 
     <!-- sea -->
-    <path d="M-20 150 L420 150 L420 214 C320 224 300 206 200 214 C120 220 60 206 -20 214 Z"
+    <path d="M-20 138 L420 138 L420 176 C320 184 300 170 200 176 C120 181 60 170 -20 176 Z"
           fill="url(#bSea)" filter="url(#wcBleed)"/>
     <!-- ink wave strokes -->
     <g class="wc-waves" stroke="${INK}" stroke-width="1.3" fill="none" stroke-linecap="round" opacity="0.45" filter="url(#wcInk)">
-      <path d="M40 172 q14 -6 28 0 q14 6 28 0"/>
-      <path d="M150 184 q14 -6 28 0 q14 6 28 0"/>
-      <path d="M260 176 q14 -6 28 0 q14 6 28 0"/>
-      <path d="M90 196 q16 -6 32 0 q16 6 32 0"/>
-      <path d="M220 200 q16 -6 32 0 q16 6 32 0"/>
+      <path d="M40 150 q14 -6 28 0 q14 6 28 0"/>
+      <path d="M150 160 q14 -6 28 0 q14 6 28 0"/>
+      <path d="M260 154 q14 -6 28 0 q14 6 28 0"/>
+      <path d="M90 168 q16 -6 32 0 q16 6 32 0"/>
+      <path d="M220 170 q16 -6 32 0 q16 6 32 0"/>
     </g>
 
-    <!-- sand foreground -->
-    <path d="M-20 206 C90 196 150 214 230 206 C300 199 360 210 420 204 L420 320 L-20 320 Z"
+    <!-- sand foreground (comes up high so the fox stands on the beach) -->
+    <path d="M-20 168 C90 160 150 176 230 168 C300 162 360 172 420 167 L420 320 L-20 320 Z"
           fill="url(#bSand)" filter="url(#wcBleed)"/>
     <!-- warm pooled shadow on sand -->
     <path d="M40 250 C140 238 240 262 360 248" fill="none" stroke="#c8a86a" stroke-width="16" opacity="0.3" filter="url(#wcSoft)"/>
@@ -124,52 +124,64 @@ function beachArt(): string {
   </svg>`
 }
 
-/** A loose pen-and-wash fox character — washes underneath, boiling ink line on top. */
+/** A chibi-cute pen-and-wash fox — big head, big shiny eyes, rosy cheeks. */
 export function foxArt(): string {
   return `
   <svg class="vn-sprite vn-char" viewBox="0 0 200 220" aria-hidden="true">
     <!-- soft contact shadow -->
-    <ellipse cx="100" cy="204" rx="62" ry="12" fill="#5a4a36" opacity="0.16" filter="url(#wcSoft)"/>
+    <ellipse cx="100" cy="208" rx="56" ry="11" fill="#5a4a36" opacity="0.16" filter="url(#wcSoft)"/>
 
     <!-- WASHES (no outline) -->
     <g filter="url(#wcBleed)">
-      <!-- tail -->
-      <path d="M150 150 C188 138 196 96 176 80 C168 120 140 130 132 150 Z" fill="#d6884a"/>
-      <path d="M176 80 C186 92 184 110 172 118 C172 100 172 90 176 80 Z" fill="#f3e6d2"/>
-      <!-- body -->
-      <path d="M64 196 C50 150 58 120 100 118 C142 120 150 150 136 196 Z" fill="#dc8c4d"/>
-      <!-- chest -->
-      <path d="M84 196 C76 158 84 138 100 138 C116 138 124 158 116 196 Z" fill="#f4e7d4"/>
-      <!-- head -->
-      <path d="M100 60 C140 60 150 96 138 122 C128 142 116 150 100 150 C84 150 72 142 62 122 C50 96 60 60 100 60 Z" fill="#dc8c4d"/>
-      <!-- ears -->
-      <path d="M70 70 L58 30 L96 58 Z" fill="#d6884a"/>
-      <path d="M130 70 L142 30 L104 58 Z" fill="#d6884a"/>
-      <path d="M73 64 L66 42 L90 58 Z" fill="#f3e6d2"/>
-      <path d="M127 64 L134 42 L110 58 Z" fill="#f3e6d2"/>
-      <!-- muzzle -->
-      <path d="M100 98 C122 98 130 120 122 136 C116 148 108 150 100 150 C92 150 84 148 78 136 C70 120 78 98 100 98 Z" fill="#faf1e3"/>
+      <!-- fluffy tail curling beside the body -->
+      <path d="M150 178 C192 168 198 116 172 96 C160 124 150 150 128 172 Z" fill="#e3995c"/>
+      <path d="M172 96 C186 108 184 130 168 138 C171 118 171 104 172 96 Z" fill="#f8eedd"/>
+      <!-- small round body -->
+      <path d="M70 204 C58 174 66 152 100 152 C134 152 142 174 130 204 Z" fill="#e6985a"/>
+      <!-- cream belly -->
+      <path d="M86 204 C80 180 86 164 100 164 C114 164 120 180 114 204 Z" fill="#f9efe0"/>
+      <!-- front paws -->
+      <ellipse cx="84" cy="202" rx="11" ry="9" fill="#e6985a"/>
+      <ellipse cx="116" cy="202" rx="11" ry="9" fill="#e6985a"/>
+      <!-- big round head -->
+      <path d="M100 40 C152 40 162 84 151 116 C142 146 122 158 100 158 C78 158 58 146 49 116 C38 84 48 40 100 40 Z" fill="#e6985a"/>
+      <!-- ears (rounded, perky) -->
+      <path d="M60 60 C46 30 56 20 78 42 C70 50 64 54 60 60 Z" fill="#e3995c"/>
+      <path d="M140 60 C154 30 144 20 122 42 C130 50 136 54 140 60 Z" fill="#e3995c"/>
+      <path d="M64 54 C56 38 62 33 74 45 Z" fill="#f4ddca"/>
+      <path d="M136 54 C144 38 138 33 126 45 Z" fill="#f4ddca"/>
+      <!-- cream muzzle/cheeks (wide for chibi look) -->
+      <path d="M100 94 C130 94 140 118 130 138 C121 153 110 158 100 158 C90 158 79 153 70 138 C60 118 70 94 100 94 Z" fill="#fcf5ea"/>
     </g>
 
     <!-- INK LINE (boiling) -->
-    <g fill="none" stroke="${INK}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" filter="url(#wcInk)">
-      <path d="M100 60 C140 60 150 96 138 122 C128 142 116 150 100 150 C84 150 72 142 62 122 C50 96 60 60 100 60 Z"/>
-      <path d="M70 70 L58 30 L96 58"/>
-      <path d="M130 70 L142 30 L104 58"/>
-      <path d="M64 196 C50 150 58 120 100 118 C142 120 150 150 136 196"/>
-      <path d="M150 150 C188 138 196 96 176 80"/>
-      <path d="M100 98 C122 98 130 120 122 136 C116 148 108 150 100 150 C92 150 84 148 78 136 C70 120 78 98 100 98 Z"/>
+    <g fill="none" stroke="${INK}" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" filter="url(#wcInk)">
+      <path d="M100 40 C152 40 162 84 151 116 C142 146 122 158 100 158 C78 158 58 146 49 116 C38 84 48 40 100 40 Z"/>
+      <path d="M60 60 C46 30 56 20 78 42"/>
+      <path d="M140 60 C154 30 144 20 122 42"/>
+      <path d="M70 204 C58 174 66 152 100 152 C134 152 142 174 130 204"/>
+      <path d="M150 178 C192 168 198 116 172 96"/>
     </g>
 
     <!-- face -->
-    <g filter="url(#wcInk)">
-      <ellipse cx="84" cy="106" rx="5.5" ry="7" fill="${INK}"/>
-      <ellipse cx="116" cy="106" rx="5.5" ry="7" fill="${INK}"/>
-      <circle cx="86" cy="103" r="1.8" fill="#fff"/>
-      <circle cx="118" cy="103" r="1.8" fill="#fff"/>
-      <path d="M100 128 C94 128 91 132 94 135 C97 138 100 139 100 139 C100 139 103 138 106 135 C109 132 106 128 100 128 Z" fill="${INK}"/>
-      <path d="M100 139 C100 146 94 149 89 147" fill="none" stroke="${INK}" stroke-width="2.2" stroke-linecap="round"/>
-      <path d="M100 139 C100 146 106 149 111 147" fill="none" stroke="${INK}" stroke-width="2.2" stroke-linecap="round"/>
+    <g>
+      <!-- rosy blush -->
+      <ellipse cx="72" cy="124" rx="11" ry="6.5" fill="#f0a39c" opacity="0.55" filter="url(#wcSoft)"/>
+      <ellipse cx="128" cy="124" rx="11" ry="6.5" fill="#f0a39c" opacity="0.55" filter="url(#wcSoft)"/>
+      <g filter="url(#wcInk)">
+        <!-- big sparkly eyes -->
+        <ellipse cx="79" cy="108" rx="9.5" ry="11.5" fill="${INK}"/>
+        <ellipse cx="121" cy="108" rx="9.5" ry="11.5" fill="${INK}"/>
+        <circle cx="83" cy="103" r="3.8" fill="#fff"/>
+        <circle cx="125" cy="103" r="3.8" fill="#fff"/>
+        <circle cx="75" cy="112" r="1.9" fill="#fff" opacity="0.85"/>
+        <circle cx="117" cy="112" r="1.9" fill="#fff" opacity="0.85"/>
+        <!-- little nose -->
+        <path d="M100 126 C93 126 90 130 94 133 C97 136 100 137 100 137 C100 137 103 136 106 133 C110 130 107 126 100 126 Z" fill="${INK}"/>
+        <!-- happy smile -->
+        <path d="M100 137 C100 145 92 148 86 145" fill="none" stroke="${INK}" stroke-width="2.2" stroke-linecap="round"/>
+        <path d="M100 137 C100 145 108 148 114 145" fill="none" stroke="${INK}" stroke-width="2.2" stroke-linecap="round"/>
+      </g>
     </g>
   </svg>`
 }

@@ -46,7 +46,6 @@ export const OPENAI_VOICES: { name: string; zh: string }[] = [
 
 export function useNeuralVoice(settings: AiSettings): boolean {
   if (settings.ttsVoice === 'system') return false
-  if (settings.openaiApiKey) return true // AIHubMix works for chat → use it for voice too
   if (settings.ttsVoice === 'free') return true // no key needed
   if (settings.ttsVoice === 'openai') return !!settings.openaiApiKey
   return !!settings.geminiApiKey
@@ -83,23 +82,22 @@ async function getAudioUrl(
   settings: AiSettings,
   style: TtsStyle,
 ): Promise<string> {
-  // Prefer AIHubMix whenever a key is present: it returns an MP3 we play as a
-  // same-origin blob (reliable on mobile, incl. iOS) and avoids the free Polly
-  // endpoint, which can be unreachable on some networks (e.g. mainland China).
-  if (settings.openaiApiKey && settings.ttsVoice !== 'system') return fetchOpenAiTts(text, settings)
+  // Respect the voice the user actually picked.
   if (settings.ttsVoice === 'free') return freeVoiceUrl(text, settings)
   if (settings.ttsVoice === 'openai') return fetchOpenAiTts(text, settings)
   return fetchTts(text, settings, style)
 }
 
 function stylePrefix(style: TtsStyle): string {
+  // Note: avoid words like "gently/softly" — Gemini renders those quietly.
+  // We want a bright, warm, enthusiastic delivery at a clear, full volume.
   switch (style) {
     case 'slow':
-      return 'Read this slowly and very clearly, warmly, for someone learning English: '
+      return 'Read this slowly and very clearly, in a warm, bright, encouraging voice at a good full volume, for someone learning English: '
     case 'warm':
-      return 'Say this warmly and gently, like a kind, friendly fox talking to a friend: '
+      return 'Say this warmly and brightly, with lively, cheerful enthusiasm, like a friendly fox happily welcoming a friend. Speak clearly and at a good full volume: '
     default:
-      return 'Read this naturally and warmly, with gentle, lively expression: '
+      return 'Read this clearly and warmly, with bright, lively enthusiasm at a good full volume: '
   }
 }
 
@@ -178,6 +176,19 @@ function base64ToBytes(b64: string): Uint8Array {
   return bytes
 }
 
+/** Boost loudness of 16-bit PCM in place (with hard clipping). */
+function amplifyPcm(bytes: Uint8Array, gain: number): Uint8Array {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  const n = Math.floor(bytes.byteLength / 2)
+  for (let i = 0; i < n; i++) {
+    let s = view.getInt16(i * 2, true) * gain
+    if (s > 32767) s = 32767
+    else if (s < -32768) s = -32768
+    view.setInt16(i * 2, s, true)
+  }
+  return bytes
+}
+
 function pcmToWav(pcm: Uint8Array, sampleRate: number): Blob {
   const header = new ArrayBuffer(44)
   const view = new DataView(header)
@@ -235,7 +246,8 @@ async function fetchTts(
   if (!part?.data) throw new Error('no audio')
   const rateMatch = /rate=(\d+)/.exec(part.mimeType ?? '')
   const rate = rateMatch ? Number(rateMatch[1]) : DEFAULT_RATE
-  const objUrl = URL.createObjectURL(pcmToWav(base64ToBytes(part.data), rate))
+  const pcm = amplifyPcm(base64ToBytes(part.data), 1.7)
+  const objUrl = URL.createObjectURL(pcmToWav(pcm, rate))
   cacheSet(key, objUrl)
   return objUrl
 }
