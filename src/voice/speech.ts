@@ -1,3 +1,12 @@
+import { storage } from '../storage'
+import {
+  neuralSpeak,
+  neuralSpeakSequence,
+  neuralStop,
+  useNeuralVoice,
+  type TtsStyle,
+} from './neural-tts'
+
 interface SpeechRecognitionInstance extends EventTarget {
   lang: string
   interimResults: boolean
@@ -106,47 +115,80 @@ export class VoiceHelper {
 
   speak(text: string, lang = 'en-US', rate = 0.9): void {
     this.stopSpeaking()
-    const clean = text
-      .replace(/[\u{1F300}-\u{1FAFF}]/gu, '')
-      .replace(/\*\*(.+?)\*\*/g, '$1')
-      .replace(/💡 Tips[\s\S]*/i, '')
-      .replace(/⚠️[\s\S]*/g, '')
-      .trim()
+    const clean = cleanForSpeech(text)
     if (!clean) return
 
-    const utter = new SpeechSynthesisUtterance(clean.slice(0, 500))
-    utter.lang = lang
-    utter.rate = rate
-    const voices = speechSynthesis.getVoices()
-    const preferred = voices.find(
-      (v) => v.lang.startsWith(lang.slice(0, 2)) && v.name.includes('Google'),
-    ) ?? voices.find((v) => v.lang.startsWith(lang.slice(0, 2)))
-    if (preferred) utter.voice = preferred
-    speechSynthesis.speak(utter)
+    const settings = storage.getAiSettings()
+    // Use the warm neural voice for English when a key is set; otherwise
+    // fall back to the system voice (and also on any neural failure).
+    if (lang.startsWith('en') && useNeuralVoice(settings)) {
+      const style: TtsStyle = rate < 0.85 ? 'slow' : 'warm'
+      neuralSpeak(clean, settings, style).catch(() => browserSpeak(clean, lang, rate))
+      return
+    }
+    browserSpeak(clean, lang, rate)
   }
 
-  /** Read a long passage by queueing it sentence by sentence. */
+  /** Read a long passage; neural reads it expressively sentence by sentence. */
   speakLong(text: string, rate = 0.95, lang = 'en-US'): void {
     this.stopSpeaking()
     const clean = text.replace(/\s+/g, ' ').trim()
     if (!clean) return
-    const chunks = clean.match(/[^.!?]+[.!?]*/g) ?? [clean]
-    const voices = speechSynthesis.getVoices()
-    const preferred =
-      voices.find((v) => v.lang.startsWith(lang.slice(0, 2)) && v.name.includes('Google')) ??
-      voices.find((v) => v.lang.startsWith(lang.slice(0, 2)))
-    for (const chunk of chunks) {
-      const trimmed = chunk.trim()
-      if (!trimmed) continue
-      const utter = new SpeechSynthesisUtterance(trimmed)
-      utter.lang = lang
-      utter.rate = rate
-      if (preferred) utter.voice = preferred
-      speechSynthesis.speak(utter)
+    const chunks = (clean.match(/[^.!?]+[.!?]*/g) ?? [clean])
+      .map((c) => c.trim())
+      .filter(Boolean)
+
+    const settings = storage.getAiSettings()
+    if (lang.startsWith('en') && useNeuralVoice(settings)) {
+      const style: TtsStyle = rate < 0.85 ? 'slow' : 'normal'
+      neuralSpeakSequence(chunks, settings, style).catch(() => browserSpeakChunks(chunks, lang, rate))
+      return
     }
+    browserSpeakChunks(chunks, lang, rate)
   }
 
   stopSpeaking() {
     speechSynthesis.cancel()
+    neuralStop()
+  }
+}
+
+function cleanForSpeech(text: string): string {
+  return text
+    .replace(/[\u{1F300}-\u{1FAFF}]/gu, '')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/💡 Tips[\s\S]*/i, '')
+    .replace(/⚠️[\s\S]*/g, '')
+    .trim()
+}
+
+/** Pick the most natural-sounding system voice available for a language. */
+function pickBrowserVoice(lang: string): SpeechSynthesisVoice | undefined {
+  const code = lang.slice(0, 2)
+  const voices = speechSynthesis.getVoices().filter((v) => v.lang.startsWith(code))
+  if (!voices.length) return undefined
+  const nice = /natural|neural|premium|enhanced|google|siri|samantha|karen|daniel|moira|aaron|allison/i
+  return voices.find((v) => nice.test(v.name)) ?? voices.find((v) => v.localService) ?? voices[0]
+}
+
+function browserSpeak(clean: string, lang: string, rate: number): void {
+  const utter = new SpeechSynthesisUtterance(clean.slice(0, 500))
+  utter.lang = lang
+  utter.rate = rate
+  utter.pitch = 1.05
+  const v = pickBrowserVoice(lang)
+  if (v) utter.voice = v
+  speechSynthesis.speak(utter)
+}
+
+function browserSpeakChunks(chunks: string[], lang: string, rate: number): void {
+  const v = pickBrowserVoice(lang)
+  for (const chunk of chunks) {
+    const utter = new SpeechSynthesisUtterance(chunk)
+    utter.lang = lang
+    utter.rate = rate
+    utter.pitch = 1.05
+    if (v) utter.voice = v
+    speechSynthesis.speak(utter)
   }
 }

@@ -1,6 +1,11 @@
 import type { AiProvider, AiSettings } from '../types'
 import { storage } from '../storage'
 import { fetchOllamaModels } from '../ai/chat'
+import { VoiceHelper } from '../voice/speech'
+import { GEMINI_VOICES, neuralSpeak, useNeuralVoice } from '../voice/neural-tts'
+
+const previewVoice = new VoiceHelper()
+const PREVIEW_LINE = "Hi! I'm Fox. Welcome to English Island — let's read a story together."
 
 export function renderSettings(): HTMLElement {
   const settings = storage.getAiSettings()
@@ -57,6 +62,31 @@ export function renderSettings(): HTMLElement {
         </div>
       </div>
 
+      <div class="provider-section full">
+        <h3>🔊 朗读语音</h3>
+        <p class="hint">自然语音用 Gemini 合成，温暖有感情（需填上面的 Key）；没有 Key 时自动用系统语音。</p>
+        <div class="field">
+          <label for="ttsVoice">语音类型</label>
+          <select id="ttsVoice">
+            <option value="natural" ${settings.ttsVoice === 'natural' ? 'selected' : ''}>自然语音（Gemini，推荐）</option>
+            <option value="system" ${settings.ttsVoice === 'system' ? 'selected' : ''}>系统语音（免 Key，离线）</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="geminiVoiceName">音色</label>
+          <div class="input-row">
+            <select id="geminiVoiceName">
+              ${GEMINI_VOICES.map(
+                (v) =>
+                  `<option value="${esc(v.name)}" ${settings.geminiVoiceName === v.name ? 'selected' : ''}>${esc(v.name)}（${esc(v.zh)}）</option>`,
+              ).join('')}
+            </select>
+            <button type="button" class="btn btn-secondary" id="preview-voice">🔊 试听</button>
+          </div>
+          <div id="voice-status" class="status-msg"></div>
+        </div>
+      </div>
+
       <div class="form-actions full">
         <button type="submit" class="btn btn-primary">保存设置</button>
         <span id="save-status" class="save-status"></span>
@@ -109,17 +139,46 @@ export function renderSettings(): HTMLElement {
     }
   })
 
-  const form = el.querySelector('#settings-form') as HTMLFormElement
-  form.addEventListener('submit', (e) => {
-    e.preventDefault()
-    const updated: AiSettings = {
+  function readForm(): AiSettings {
+    return {
       provider: providerSelect.value as AiProvider,
       ollamaBaseUrl: (el.querySelector('#ollamaBaseUrl') as HTMLInputElement).value.trim(),
       ollamaModel: (el.querySelector('#ollamaModel') as HTMLInputElement).value.trim(),
       geminiApiKey: (el.querySelector('#geminiApiKey') as HTMLInputElement).value.trim(),
       geminiModel: (el.querySelector('#geminiModel') as HTMLSelectElement).value,
+      ttsVoice: (el.querySelector('#ttsVoice') as HTMLSelectElement).value as AiSettings['ttsVoice'],
+      geminiVoiceName: (el.querySelector('#geminiVoiceName') as HTMLSelectElement).value,
     }
-    storage.saveAiSettings(updated)
+  }
+
+  el.querySelector('#preview-voice')!.addEventListener('click', () => {
+    const s = readForm()
+    const status = el.querySelector('#voice-status')!
+    if (s.ttsVoice === 'natural' && !s.geminiApiKey) {
+      status.textContent = '自然语音需要先填 Gemini API Key'
+      status.className = 'status-msg error'
+      return
+    }
+    status.textContent = '试听中…'
+    status.className = 'status-msg'
+    if (useNeuralVoice(s)) {
+      neuralSpeak(PREVIEW_LINE, s, 'warm')
+        .then(() => (status.textContent = ''))
+        .catch(() => {
+          status.textContent = '自然语音失败，已用系统语音（检查 Key / 网络）'
+          status.className = 'status-msg error'
+          previewVoice.speak(PREVIEW_LINE, 'en-US', 0.9)
+        })
+    } else {
+      previewVoice.speak(PREVIEW_LINE, 'en-US', 0.9)
+      status.textContent = ''
+    }
+  })
+
+  const form = el.querySelector('#settings-form') as HTMLFormElement
+  form.addEventListener('submit', (e) => {
+    e.preventDefault()
+    storage.saveAiSettings(readForm())
     const status = el.querySelector('#save-status')!
     status.textContent = '✓ 已保存'
     setTimeout(() => (status.textContent = ''), 2000)

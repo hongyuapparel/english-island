@@ -31,6 +31,10 @@ export interface AiSettings {
   ollamaModel: string
   geminiApiKey: string
   geminiModel: string
+  /** 'natural' = expressive Gemini voice (needs key); 'system' = browser voice. */
+  ttsVoice: 'natural' | 'system'
+  /** Gemini prebuilt voice name, e.g. 'Sulafat'. */
+  geminiVoiceName: string
 }
 
 export interface ChatMessage {
@@ -111,6 +115,8 @@ export const DEFAULT_AI_SETTINGS: AiSettings = {
   ollamaModel: 'qwen2.5:7b',
   geminiApiKey: '',
   geminiModel: 'gemini-2.0-flash',
+  ttsVoice: 'natural',
+  geminiVoiceName: 'Sulafat',
 }
 
 export interface MemoryExtraction {
