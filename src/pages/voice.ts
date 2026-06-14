@@ -263,7 +263,7 @@ export function renderChat(): HTMLElement {
       messages.push({
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: `⚠️ ${err instanceof Error ? err.message : '失败'}。去「我的 → AI 设置」检查一下。`,
+        content: friendlyError(err),
         timestamp: Date.now(),
       })
       storage.saveChatHistory(messages)
@@ -349,6 +349,17 @@ export function renderChat(): HTMLElement {
 
   render()
   return el
+}
+
+function friendlyError(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err)
+  if (/quota|exceeded|RESOURCE_EXHAUSTED|limit:\s*0|429/i.test(msg)) {
+    return '⚠️ 你的 Gemini Key 免费额度不足或为 0（多为 Google 账号/地区限制，或需开通计费）。\n可在「我的 → AI 设置」换一个能用的 Key，朗读语音也会随之恢复。'
+  }
+  if (/API key|API_KEY|invalid|403|PERMISSION/i.test(msg)) {
+    return '⚠️ Gemini Key 无效或未授权。请到「我的 → AI 设置」检查 Key。'
+  }
+  return `⚠️ ${msg}。去「我的 → AI 设置」检查一下。`
 }
 
 function formatContent(text: string): string {
