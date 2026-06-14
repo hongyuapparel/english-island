@@ -2,7 +2,7 @@ export type EnglishLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2' | 'unknown'
 
 export type CorrectionStyle = 'gentle' | 'moderate' | 'strict' | 'chat-first'
 
-export type AiProvider = 'free' | 'ollama' | 'gemini'
+export type AiProvider = 'free' | 'openai' | 'ollama' | 'gemini'
 
 export interface UserProfile {
   name: string
@@ -31,11 +31,16 @@ export interface AiSettings {
   ollamaModel: string
   geminiApiKey: string
   geminiModel: string
-  /** 'free' = free no-key neural voice; 'natural' = Gemini voice (needs key); 'system' = browser. */
-  ttsVoice: 'free' | 'natural' | 'system'
+  /** OpenAI-compatible endpoint (e.g. AIHubMix). */
+  openaiBaseUrl: string
+  openaiApiKey: string
+  openaiModel: string
+  openaiVoice: string
+  /** 'free' = Polly; 'openai' = OpenAI/AIHubMix voice; 'natural' = Gemini; 'system' = browser. */
+  ttsVoice: 'free' | 'openai' | 'natural' | 'system'
   /** Gemini prebuilt voice name, e.g. 'Sulafat'. */
   geminiVoiceName: string
-  /** Free (Pollinations) voice name, e.g. 'nova'. */
+  /** Free (Polly) voice name, e.g. 'Joanna'. */
   freeVoice: string
 }
 
@@ -126,6 +131,10 @@ export const DEFAULT_AI_SETTINGS: AiSettings = {
   ollamaModel: 'qwen2.5:7b',
   geminiApiKey: '',
   geminiModel: 'gemini-2.0-flash',
+  openaiBaseUrl: 'https://aihubmix.com/v1',
+  openaiApiKey: '',
+  openaiModel: 'gpt-4o-mini',
+  openaiVoice: 'nova',
   ttsVoice: 'free',
   geminiVoiceName: 'Sulafat',
   freeVoice: 'Joanna',
