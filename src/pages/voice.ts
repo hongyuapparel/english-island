@@ -18,6 +18,8 @@ const voice = new VoiceHelper()
 let isLoading = false
 let statusText = '点击麦克风开始说话'
 let interimText = ''
+/** Hands-free "phone call" mode: keep listening after each reply. */
+let callMode = false
 
 /** When set, the chat is framed around discussing this article. */
 let discussionArticle: Article | null = null
@@ -99,6 +101,14 @@ export function renderChat(): HTMLElement {
           <input type="checkbox" id="auto-read" ${autoRead ? 'checked' : ''} />
           🔊 自动朗读 ${AGENT_NAME} 的回复
         </label>
+        ${
+          supported
+            ? `<label class="toggle-auto">
+                 <input type="checkbox" id="call-mode" ${callMode ? 'checked' : ''} />
+                 📞 连续对话（说完它自动接着听，像打电话）
+               </label>`
+            : `<p class="hint">📞 此手机不支持网页语音输入；连续语音通话需用录音版（开发中）。可先打字聊。</p>`
+        }
         <div class="voice-buttons">
           <button class="btn btn-ghost btn-sm" id="summarize" ${messages.length === 0 || isLoading ? 'disabled' : ''}>结束并总结</button>
           <button class="mic-btn ${voice.isListening ? 'active' : ''}" id="mic-btn" ${!supported || isLoading ? 'disabled' : ''} aria-label="说话">
@@ -145,6 +155,18 @@ export function renderChat(): HTMLElement {
 
     el.querySelector('#auto-read')?.addEventListener('change', (e) => {
       storage.setVoiceAutoRead((e.target as HTMLInputElement).checked)
+    })
+
+    el.querySelector('#call-mode')?.addEventListener('change', (e) => {
+      callMode = (e.target as HTMLInputElement).checked
+      if (callMode) {
+        storage.setVoiceAutoRead(true)
+        startCallListening()
+      } else {
+        voice.stopListening()
+        statusText = '点击麦克风开始说话'
+        render()
+      }
     })
 
     el.querySelector('#clear-voice')?.addEventListener('click', () => {
@@ -209,6 +231,45 @@ export function renderChat(): HTMLElement {
     render()
   }
 
+  let callErrors = 0
+  function startCallListening() {
+    if (!callMode || isLoading) return
+    statusText = '📞 在听你说…（再点开关结束通话）'
+    interimText = ''
+    render()
+    voice.startListening(
+      (text, isFinal) => {
+        interimText = isFinal ? '' : text
+        if (isFinal && text.trim()) {
+          callErrors = 0
+          voice.stopListening()
+          sendMessage(text.trim())
+        } else {
+          render()
+        }
+      },
+      (err) => {
+        if (!callMode) {
+          statusText = err
+          render()
+          return
+        }
+        callErrors += 1
+        if (callErrors > 3) {
+          callMode = false
+          statusText = `通话已结束：${err}`
+          render()
+          return
+        }
+        setTimeout(() => {
+          if (callMode) startCallListening()
+        }, 700)
+      },
+      'en-US',
+    )
+    render()
+  }
+
   async function sendMessage(text: string) {
     const messages = storage.getChatHistory()
     messages.push({
@@ -247,7 +308,15 @@ export function renderChat(): HTMLElement {
       })
       storage.saveChatHistory(messages)
 
-      if (storage.getVoiceAutoRead()) voice.speak(reply)
+      if (callMode) {
+        isLoading = false
+        statusText = `📞 ${AGENT_NAME} 在说…`
+        render()
+        await voice.speakAwait(reply)
+        if (callMode) startCallListening()
+      } else if (storage.getVoiceAutoRead()) {
+        voice.speak(reply)
+      }
 
       const userCount = messages.filter((m) => m.role === 'user').length
       if (userCount % 2 === 0) {
@@ -269,8 +338,10 @@ export function renderChat(): HTMLElement {
       storage.saveChatHistory(messages)
     } finally {
       isLoading = false
-      statusText = '点击麦克风开始说话'
-      render()
+      if (!callMode || !voice.isListening) {
+        statusText = '点击麦克风开始说话'
+        render()
+      }
     }
   }
 

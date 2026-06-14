@@ -23,11 +23,14 @@ export const GEMINI_VOICES: { name: string; zh: string }[] = [
 /** Free natural voices (Amazon Polly via StreamElements) — no key required,
  *  streamed straight into <audio>, which is reliable on mobile incl. iOS. */
 export const FREE_VOICES: { name: string; zh: string }[] = [
+  { name: 'Salli', zh: '美音女声·热情' },
   { name: 'Joanna', zh: '美音女声·温暖' },
-  { name: 'Matthew', zh: '美音男声·沉稳' },
+  { name: 'Kimberly', zh: '美音女声·活泼' },
+  { name: 'Kendra', zh: '美音女声·亲切' },
   { name: 'Amy', zh: '英音女声' },
-  { name: 'Brian', zh: '英音男声·故事感' },
   { name: 'Emma', zh: '英音女声·轻柔' },
+  { name: 'Matthew', zh: '美音男声·沉稳' },
+  { name: 'Brian', zh: '英音男声·故事感' },
   { name: 'Ivy', zh: '美音童声' },
 ]
 
@@ -118,9 +121,34 @@ function cacheSet(key: string, url: string) {
 let sharedAudio: HTMLAudioElement | null = null
 let unlocked = false
 
+let audioCtx: AudioContext | null = null
+
 function getAudio(): HTMLAudioElement {
-  if (!sharedAudio) sharedAudio = new Audio()
+  if (!sharedAudio) {
+    sharedAudio = new Audio()
+    sharedAudio.volume = 1
+    // Route through a gain node to boost loudness (Polly/OpenAI clips are quiet).
+    try {
+      const Ctx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+      if (Ctx) {
+        audioCtx = new Ctx()
+        const src = audioCtx.createMediaElementSource(sharedAudio)
+        const gain = audioCtx.createGain()
+        gain.gain.value = 2.4
+        src.connect(gain)
+        gain.connect(audioCtx.destination)
+      }
+    } catch {
+      audioCtx = null
+    }
+  }
   return sharedAudio
+}
+
+function resumeAudioCtx(): void {
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {})
 }
 
 const SILENT_WAV =
@@ -130,6 +158,7 @@ const SILENT_WAV =
 export function unlockNeuralAudio(): void {
   if (unlocked) return
   const a = getAudio()
+  resumeAudioCtx()
   a.src = SILENT_WAV
   a.play()
     .then(() => {
@@ -224,6 +253,7 @@ let settleCurrent: (() => void) | null = null
 function playUrl(url: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const a = getAudio()
+    resumeAudioCtx()
     let settled = false
     const finish = (ok: boolean) => {
       if (settled) return

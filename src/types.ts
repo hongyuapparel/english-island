@@ -137,7 +137,7 @@ export const DEFAULT_AI_SETTINGS: AiSettings = {
   openaiVoice: 'nova',
   ttsVoice: 'free',
   geminiVoiceName: 'Sulafat',
-  freeVoice: 'Joanna',
+  freeVoice: 'Salli',
 }
 
 export interface MemoryExtraction {
