@@ -2,7 +2,7 @@ export type EnglishLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2' | 'unknown'
 
 export type CorrectionStyle = 'gentle' | 'moderate' | 'strict' | 'chat-first'
 
-export type AiProvider = 'ollama' | 'gemini'
+export type AiProvider = 'free' | 'ollama' | 'gemini'
 
 export interface UserProfile {
   name: string
@@ -31,10 +31,12 @@ export interface AiSettings {
   ollamaModel: string
   geminiApiKey: string
   geminiModel: string
-  /** 'natural' = expressive Gemini voice (needs key); 'system' = browser voice. */
-  ttsVoice: 'natural' | 'system'
+  /** 'free' = free no-key neural voice; 'natural' = Gemini voice (needs key); 'system' = browser. */
+  ttsVoice: 'free' | 'natural' | 'system'
   /** Gemini prebuilt voice name, e.g. 'Sulafat'. */
   geminiVoiceName: string
+  /** Free (Pollinations) voice name, e.g. 'nova'. */
+  freeVoice: string
 }
 
 export interface ChatMessage {
@@ -110,13 +112,14 @@ export const DEFAULT_STATS: AgentStats = {
 }
 
 export const DEFAULT_AI_SETTINGS: AiSettings = {
-  provider: 'ollama',
+  provider: 'free',
   ollamaBaseUrl: 'http://localhost:11434',
   ollamaModel: 'qwen2.5:7b',
   geminiApiKey: '',
   geminiModel: 'gemini-2.0-flash',
-  ttsVoice: 'natural',
+  ttsVoice: 'free',
   geminiVoiceName: 'Sulafat',
+  freeVoice: 'nova',
 }
 
 export interface MemoryExtraction {

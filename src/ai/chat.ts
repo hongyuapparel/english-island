@@ -22,6 +22,11 @@ async function callAi(
   settings: AiSettings,
   messages: ApiMessage[],
 ): Promise<string> {
+  // Free, no-key AI (Pollinations) — works from the browser with no backend
+  // and no API key, so the app is usable out of the box.
+  if (settings.provider === 'free') {
+    return callPollinations(messages)
+  }
   // Gemini is called straight from the browser so the app works on a
   // static host (e.g. GitHub Pages) with no backend — ideal for mobile.
   if (settings.provider === 'gemini') {
@@ -41,6 +46,30 @@ async function callAi(
   const data = (await response.json()) as { content?: string; error?: string }
   if (!response.ok) throw new Error(data.error || '请求失败')
   return data.content ?? ''
+}
+
+async function callPollinations(messages: ApiMessage[]): Promise<string> {
+  const res = await fetch('https://text.pollinations.ai/openai', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'openai',
+      messages,
+      referrer: 'english-island',
+    }),
+  })
+  if (!res.ok) {
+    throw new Error(`免费 AI 暂时不可用（${res.status}），可稍后再试或在设置里换用 Gemini`)
+  }
+  const raw = await res.text()
+  try {
+    const data = JSON.parse(raw) as {
+      choices?: Array<{ message?: { content?: string } }>
+    }
+    return data.choices?.[0]?.message?.content ?? raw
+  } catch {
+    return raw
+  }
 }
 
 async function callGeminiDirect(
