@@ -20,14 +20,15 @@ export const GEMINI_VOICES: { name: string; zh: string }[] = [
   { name: 'Kore', zh: '沉稳' },
 ]
 
-/** Free (Pollinations / OpenAI) voices — no key required. */
+/** Free natural voices (Amazon Polly via StreamElements) — no key required,
+ *  streamed straight into <audio>, which is reliable on mobile incl. iOS. */
 export const FREE_VOICES: { name: string; zh: string }[] = [
-  { name: 'nova', zh: '温暖女声' },
-  { name: 'shimmer', zh: '轻柔女声' },
-  { name: 'fable', zh: '故事感' },
-  { name: 'alloy', zh: '自然中性' },
-  { name: 'echo', zh: '沉稳男声' },
-  { name: 'onyx', zh: '低沉男声' },
+  { name: 'Joanna', zh: '美音女声·温暖' },
+  { name: 'Matthew', zh: '美音男声·沉稳' },
+  { name: 'Amy', zh: '英音女声' },
+  { name: 'Brian', zh: '英音男声·故事感' },
+  { name: 'Emma', zh: '英音女声·轻柔' },
+  { name: 'Ivy', zh: '美音童声' },
 ]
 
 export function useNeuralVoice(settings: AiSettings): boolean {
@@ -38,8 +39,8 @@ export function useNeuralVoice(settings: AiSettings): boolean {
 
 /** Free TTS: a plain audio URL the <audio> element streams directly (no CORS). */
 function freeVoiceUrl(text: string, settings: AiSettings): string {
-  const voice = settings.freeVoice || 'nova'
-  return `https://text.pollinations.ai/${encodeURIComponent(text)}?model=openai-audio&voice=${voice}`
+  const voice = settings.freeVoice || 'Joanna'
+  return `https://api.streamelements.com/kappa/v2/speech?voice=${encodeURIComponent(voice)}&text=${encodeURIComponent(text.slice(0, 500))}`
 }
 
 async function getAudioUrl(

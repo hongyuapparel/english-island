@@ -80,12 +80,12 @@ export function renderSettings(): HTMLElement {
 
       <div class="provider-section full">
         <h3>🔊 朗读语音</h3>
-        <p class="hint">系统语音最稳定、离线即用（推荐）；自然语音更好听，但在部分手机（尤其 iPhone）可能较慢或不稳定。</p>
+        <p class="hint">自然语音用真人级 Polly 音色，免费无需 Key，手机上也能播。若某台手机没声音，改用「系统语音」即可。</p>
         <div class="field">
           <label for="ttsVoice">语音类型</label>
           <select id="ttsVoice">
-            <option value="system" ${settings.ttsVoice === 'system' ? 'selected' : ''}>系统语音（稳定，推荐）</option>
-            <option value="free" ${settings.ttsVoice === 'free' ? 'selected' : ''}>免费自然语音（更好听，可能不稳定）</option>
+            <option value="free" ${settings.ttsVoice === 'free' ? 'selected' : ''}>自然语音 Polly（免费，推荐）</option>
+            <option value="system" ${settings.ttsVoice === 'system' ? 'selected' : ''}>系统语音（最稳定/离线）</option>
             <option value="natural" ${settings.ttsVoice === 'natural' ? 'selected' : ''}>Gemini 语音（需 Key）</option>
           </select>
         </div>
