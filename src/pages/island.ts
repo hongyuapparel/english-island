@@ -1,11 +1,10 @@
-import { SPOTS, DAILY_COLLECT, sceneById, spotById, plotById } from '../data/island'
+import { SPOTS, PLOTS, DAILY_COLLECT, sceneById, spotById, plotById } from '../data/island'
 import { FOX_ICON } from '../asset'
 import type { Scene, Spot, Plot } from '../data/island'
 import { storage } from '../storage'
 import { VoiceHelper, isTTSSupported } from '../voice/speech'
 import { AGENT_NAME } from '../types'
 import { goTo } from '../app'
-import { IslandGame } from '../game/IslandGame'
 
 const tts = new VoiceHelper()
 
@@ -24,90 +23,83 @@ export function renderIsland(): HTMLElement {
   const el = document.createElement('div')
   el.className = 'page island-page'
 
-  // Layer 1: Phaser game canvas (absolute fill)
-  const gameMount = document.createElement('div')
-  gameMount.id = 'island-game-mount'
-  el.appendChild(gameMount)
-
-  // Layer 2: HUD overlay (coins, title)
-  const hudEl = document.createElement('div')
-  hudEl.className = 'isl-hud'
-  el.appendChild(hudEl)
-
-  // Layer 3: Today's story banner at bottom
-  const bannerEl = document.createElement('div')
-  bannerEl.className = 'island-banner'
-  el.appendChild(bannerEl)
-
-  // Layer 4: Scene overlay (VN player, covers everything when active)
-  const sceneEl = document.createElement('div')
-  sceneEl.className = 'island-scene-layer'
-  el.appendChild(sceneEl)
-
-  let game: IslandGame | null = null
-
-  // ── HUD helpers ───────────────────────────────────────────────────────────
-  function updateHud() {
+  function map() {
+    tts.stopSpeaking()
     const island = storage.getIsland()
     const stats = storage.getStats()
-    hudEl.innerHTML = `
-      <div class="isl-title">🏝️ 英语小岛</div>
-      <div class="isl-hud-stats">
-        <span class="isl-coins">🐚 <b>${island.coins}</b></span>
-        <span class="isl-prosper">🏠 <b>${island.built.length}</b></span>
+    const todaySpot = SPOTS.find((s) => spotState(s) === 'today' && s.sceneId)
+
+    el.innerHTML = `
+      <div class="island-scene">
+        <div class="isl-sky"></div>
+        <div class="isl-sun"></div>
+        <div class="isl-cloud isl-cloud-1">☁️</div>
+        <div class="isl-cloud isl-cloud-2">☁️</div>
+        <div class="isl-cloud isl-cloud-3">☁️</div>
+        <div class="isl-wave isl-wave-1"></div>
+        <div class="isl-wave isl-wave-2"></div>
+        <div class="isl-land"></div>
+        <svg class="isl-trails" viewBox="0 0 100 100" preserveAspectRatio="none">
+          <path d="${trailPath()}" />
+        </svg>
+        ${SPOTS.map((s) => spotPin(s)).join('')}
+        ${PLOTS.map((p) => plotPin(p)).join('')}
+
+        <div class="isl-hud">
+          <div class="isl-title">🏝️ 英语小岛</div>
+          <div class="isl-hud-stats">
+            <span class="isl-coins">🐚 <b>${island.coins}</b></span>
+            <span class="isl-prosper">🏠 <b>${island.built.length}</b></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="island-banner">
+        ${
+          todaySpot
+            ? `<button class="btn-quest" id="play-today">
+                 <span class="quest-spark">✨</span>
+                 <span class="quest-text"><b>今日故事</b><small>${esc(todaySpot.nameZh)}</small></span>
+                 <span class="quest-go">▶</span>
+               </button>`
+            : storage.unlockedToday()
+              ? `<div class="island-rest">🌙 今天的新故事读完啦，明天再来解锁下一处<br><span class="hint">连续 ${stats.streak} 天 · 用 🐚 在岛上建造新建筑吧</span></div>`
+              : `<div class="island-rest">🎉 主线走完啦！用 🐚 建造小岛、每天回来和居民聊聊</div>`
+        }
       </div>
     `
 
-    const todaySpot = SPOTS.find((s) => spotState(s) === 'today' && s.sceneId)
-    if (todaySpot) {
-      bannerEl.innerHTML = `
-        <button class="btn-quest" id="play-today">
-          <span class="quest-spark">✨</span>
-          <span class="quest-text"><b>今日故事</b><small>${esc(todaySpot.nameZh)}</small></span>
-          <span class="quest-go">▶</span>
+    el.querySelector('#play-today')?.addEventListener('click', () => {
+      if (todaySpot?.sceneId) openScene(sceneById(todaySpot.sceneId)!)
+    })
+    el.querySelectorAll('.spot-pin').forEach((pin) =>
+      pin.addEventListener('click', () => onSpotClick((pin as HTMLElement).dataset.id!)),
+    )
+    el.querySelectorAll('.plot-pin').forEach((pin) =>
+      pin.addEventListener('click', () => onPlotClick((pin as HTMLElement).dataset.id!)),
+    )
+  }
+
+  function plotPin(plot: Plot): string {
+    const island = storage.getIsland()
+    const built = island.built.includes(plot.id)
+    if (!built) {
+      return `
+        <button class="plot-pin plot-unbuilt" data-id="${plot.id}" style="left:${plot.x}%;top:${plot.y}%">
+          <span class="plot-ghost">${plot.emoji}</span>
+          <span class="plot-cost">🔨 ${plot.cost}🐚</span>
         </button>`
-      bannerEl.querySelector('#play-today')?.addEventListener('click', () => {
-        if (!todaySpot?.sceneId) return
-        game?.pause()
-        sceneEl.style.display = 'block'
-        startScene(sceneById(todaySpot.sceneId)!)
-      })
-    } else if (storage.unlockedToday()) {
-      bannerEl.innerHTML = `<div class="island-rest">🌙 今天的新故事读完啦，明天再来解锁下一处<br><span class="hint">连续 ${stats.streak} 天 · 用 🐚 在岛上建造新建筑吧</span></div>`
-    } else {
-      bannerEl.innerHTML = `<div class="island-rest">🎉 主线走完啦！用 🐚 建造小岛、每天回来和居民聊聊</div>`
     }
+    const canCollect = storage.canCollect(plot.id)
+    return `
+      <button class="plot-pin plot-built" data-id="${plot.id}" style="left:${plot.x}%;top:${plot.y}%">
+        <span class="spot-bubble"><span class="spot-emoji">${plot.emoji}</span></span>
+        <span class="spot-label">${esc(plot.nameZh)}</span>
+        ${canCollect ? '<span class="plot-collect">🐚</span>' : ''}
+      </button>`
   }
 
-  function returnToMap() {
-    tts.stopSpeaking()
-    sceneEl.innerHTML = ''
-    sceneEl.style.display = 'none'
-    game?.resume()
-    updateHud()
-  }
-
-  // ── Spot activation ───────────────────────────────────────────────────────
-  function onSpotActivate(id: string) {
-    const spot = spotById(id)!
-    const state = spotState(spot)
-    if (state === 'locked') {
-      const need = spot.requires ? spotById(spot.requires)?.nameZh : ''
-      toast(need ? `先点亮「${need}」才能到这里` : '还没解锁')
-      return
-    }
-    if (spot.opens === 'reading') { goTo('reading'); return }
-    if (!spot.sceneId) return
-    if (state === 'soon') {
-      toast('今天的新故事已读过，明天再来解锁这里 🌙')
-      return
-    }
-    game?.pause()
-    sceneEl.style.display = 'block'
-    startScene(sceneById(spot.sceneId)!)
-  }
-
-  function onPlotActivate(id: string) {
+  function onPlotClick(id: string) {
     const plot = plotById(id)!
     const island = storage.getIsland()
     if (!island.built.includes(plot.id)) {
@@ -117,37 +109,59 @@ export function renderIsland(): HTMLElement {
       }
       storage.buildPlot(plot.id, plot.cost)
       toast(`🎉 建好了「${plot.nameZh}」！`)
-      updateHud()
+      map()
       return
     }
     visitPlot(plot)
   }
 
-  // ── Game init ─────────────────────────────────────────────────────────────
-  game = new IslandGame(gameMount, {
-    onSpotActivate,
-    onPlotActivate,
-    getSpotState: (id) => spotState(spotById(id)!),
-    getBuiltPlots: () => storage.getIsland().built,
-  })
+  function trailPath(): string {
+    const pts = SPOTS.filter((s) => !s.opens || s.id !== 'library')
+    return pts.map((s, i) => `${i === 0 ? 'M' : 'L'} ${s.x} ${s.y}`).join(' ')
+  }
 
-  updateHud()
+  function spotPin(spot: Spot): string {
+    const state = spotState(spot)
+    const locked = state === 'locked'
+    return `
+      <button class="spot-pin spot-${state}" data-id="${spot.id}"
+        style="left:${spot.x}%;top:${spot.y}%">
+        <span class="spot-bubble">
+          <span class="spot-emoji">${locked ? '🔒' : spot.emoji}</span>
+        </span>
+        <span class="spot-label">${locked ? '？？？' : esc(spot.nameZh)}</span>
+        ${state === 'today' ? '<span class="spot-badge">今日</span>' : ''}
+        ${state === 'done' ? '<span class="spot-check">✓</span>' : ''}
+      </button>
+    `
+  }
 
-  // Cleanup Phaser when component is removed from DOM
-  const observer = new MutationObserver(() => {
-    if (!document.body.contains(el)) {
-      game?.destroy()
-      game = null
-      observer.disconnect()
+  function onSpotClick(id: string) {
+    const spot = spotById(id)!
+    const state = spotState(spot)
+    if (state === 'locked') {
+      const need = spot.requires ? spotById(spot.requires)?.nameZh : ''
+      toast(need ? `先点亮「${need}」才能到这里` : '还没解锁')
+      return
     }
-  })
-  observer.observe(document.body, { childList: true, subtree: true })
+    if (spot.opens === 'reading') {
+      goTo('reading')
+      return
+    }
+    if (!spot.sceneId) return
+    if (state === 'soon') {
+      toast('今天的新故事已读过，明天再来解锁这里 🌙')
+      return
+    }
+    openScene(sceneById(spot.sceneId)!)
+  }
 
-  // ── Visual-novel scene player ─────────────────────────────────────────────
+  // ---- Visual-novel scene player ---------------------------------------
+
   type Who = 'narration' | 'fox' | 'resident' | 'player'
   type Line = { who: Who; name?: string; emoji?: string; en: string; zh: string }
 
-  function startScene(scene: Scene) {
+  function openScene(scene: Scene) {
     const isReplay = storage.getIsland().completedScenes.includes(scene.id)
     let phase: 'intro' | 'play' | 'reward' = 'intro'
     let index = 0
@@ -171,7 +185,10 @@ export function renderIsland(): HTMLElement {
 
     function enter(i: number) {
       const step = scene.steps[i]
-      if (!step) { finish(); return }
+      if (!step) {
+        finish()
+        return
+      }
       resolved = false
       playerEcho = null
       current = { who: step.speaker, name: step.name, emoji: step.emoji, en: step.en, zh: step.zh }
@@ -181,7 +198,10 @@ export function renderIsland(): HTMLElement {
       startTyper()
     }
 
-    function next() { index += 1; enter(index) }
+    function next() {
+      index += 1
+      enter(index)
+    }
 
     function choose(optIndex: number) {
       const step = scene.steps[index]
@@ -197,7 +217,10 @@ export function renderIsland(): HTMLElement {
     }
 
     function advance() {
-      if (typing) { finishTyper(); return }
+      if (typing) {
+        finishTyper()
+        return
+      }
       const step = scene.steps[index]
       if (step?.kind === 'choice' && !resolved) return
       next()
@@ -230,14 +253,17 @@ export function renderIsland(): HTMLElement {
       shown = fullText.length
       typing = false
       updateText()
-      const hint = sceneEl.querySelector('.vn-tap-hint') as HTMLElement | null
+      const hint = el.querySelector('.vn-tap-hint') as HTMLElement | null
       if (hint && !choosing) hint.style.visibility = 'visible'
     }
     function stopTyper() {
-      if (typer) { clearInterval(typer); typer = null }
+      if (typer) {
+        clearInterval(typer)
+        typer = null
+      }
     }
     function updateText() {
-      const t = sceneEl.querySelector('#vn-text')
+      const t = el.querySelector('#vn-text')
       if (t) t.textContent = fullText.slice(0, shown)
     }
 
@@ -251,7 +277,7 @@ export function renderIsland(): HTMLElement {
     }
 
     function paintIntro() {
-      sceneEl.innerHTML = `
+      el.innerHTML = `
         <div class="vn ${bg}">
           <div class="vn-intro">
             <div class="vn-intro-emoji vn-pop">${scene.emoji}</div>
@@ -261,9 +287,13 @@ export function renderIsland(): HTMLElement {
             <button class="btn-quest vn-begin" id="begin"><span class="quest-text"><b>开始故事</b></span><span class="quest-go">▶</span></button>
             <button class="vn-leave-text" id="leave">← 回小岛</button>
           </div>
-        </div>`
-      sceneEl.querySelector('#begin')?.addEventListener('click', () => { phase = 'play'; enter(0) })
-      sceneEl.querySelector('#leave')?.addEventListener('click', returnToMap)
+        </div>
+      `
+      el.querySelector('#begin')?.addEventListener('click', () => {
+        phase = 'play'
+        enter(0)
+      })
+      el.querySelector('#leave')?.addEventListener('click', map)
     }
 
     function paintPlay() {
@@ -272,17 +302,19 @@ export function renderIsland(): HTMLElement {
       const step = scene.steps[index]
       const opts = choosing && step.kind === 'choice' ? step.options : null
 
-      sceneEl.innerHTML = `
+      el.innerHTML = `
         <div class="vn ${bg}">
           <div class="vn-top">
             <button class="vn-icon-btn" id="leave2">←</button>
             <span class="vn-chip">${scene.emoji} ${esc(scene.titleZh)}</span>
             <button class="vn-icon-btn ${showZh ? 'on' : ''}" id="zh-toggle">中</button>
           </div>
+
           <div class="vn-stage" id="vn-stage">
             ${playerEcho ? `<div class="vn-echo">🗨️ You: ${esc(playerEcho)}</div>` : ''}
             ${sprite(line)}
           </div>
+
           <div class="vn-box" id="vn-box">
             ${name ? `<div class="vn-name">${esc(name)}</div>` : '<div class="vn-name vn-name-narr">旁白</div>'}
             <div class="vn-text" id="vn-text"></div>
@@ -291,26 +323,31 @@ export function renderIsland(): HTMLElement {
               <button class="vn-say" id="vn-say">🔊 再听</button>
               ${opts ? '' : '<span class="vn-tap-hint">轻点屏幕继续 ▶</span>'}
             </div>
-            ${opts
-              ? `<div class="vn-choices">${opts
-                  .map((o, i) =>
-                    `<button class="vn-choice" data-i="${i}"><span class="ce">${esc(o.en)}</span>${showZh ? `<span class="cz">${esc(o.zh)}</span>` : ''}</button>`)
-                  .join('')}</div>`
-              : ''}
+            ${
+              opts
+                ? `<div class="vn-choices">${opts
+                    .map(
+                      (o, i) =>
+                        `<button class="vn-choice" data-i="${i}"><span class="ce">${esc(o.en)}</span>${showZh ? `<span class="cz">${esc(o.zh)}</span>` : ''}</button>`,
+                    )
+                    .join('')}</div>`
+                : ''
+            }
           </div>
-        </div>`
+        </div>
+      `
 
-      sceneEl.querySelector('.vn')?.addEventListener('click', (e) => {
+      el.querySelector('.vn')?.addEventListener('click', (e) => {
         if ((e.target as HTMLElement).closest('button')) return
         advance()
       })
-      sceneEl.querySelector('#leave2')?.addEventListener('click', (e) => {
+      el.querySelector('#leave2')?.addEventListener('click', (e) => {
         e.stopPropagation()
         tts.stopSpeaking()
         stopTyper()
-        returnToMap()
+        map()
       })
-      sceneEl.querySelector('#zh-toggle')?.addEventListener('click', (e) => {
+      el.querySelector('#zh-toggle')?.addEventListener('click', (e) => {
         e.stopPropagation()
         showZh = !showZh
         const keepShown = shown
@@ -319,14 +356,14 @@ export function renderIsland(): HTMLElement {
         typing = false
         stopTyper()
         updateText()
-        const hint = sceneEl.querySelector('.vn-tap-hint') as HTMLElement | null
+        const hint = el.querySelector('.vn-tap-hint') as HTMLElement | null
         if (hint) hint.style.visibility = 'visible'
       })
-      sceneEl.querySelector('#vn-say')?.addEventListener('click', (e) => {
+      el.querySelector('#vn-say')?.addEventListener('click', (e) => {
         e.stopPropagation()
         if (current) tts.speak(current.en, 'en-US', 0.92)
       })
-      sceneEl.querySelectorAll('.vn-choice').forEach((b) =>
+      el.querySelectorAll('.vn-choice').forEach((b) =>
         b.addEventListener('click', (e) => {
           e.stopPropagation()
           choose(Number((b as HTMLElement).dataset.i))
@@ -336,17 +373,19 @@ export function renderIsland(): HTMLElement {
 
     function paintReward() {
       const unlocked = scene.reward.unlockSpot ? spotById(scene.reward.unlockSpot) : undefined
-      sceneEl.innerHTML = `
+      el.innerHTML = `
         <div class="vn ${bg}">
           <div class="vn-reward">
             <div class="reward-burst">🎉</div>
             <h1>${isReplay ? '重温完成' : '完成！'}</h1>
-            ${isReplay
-              ? '<p class="hint">重玩不再重复发奖励哦</p>'
-              : `<div class="reward-rows">
-                   <div class="reward-row reward-coin">🐚 +${scene.reward.coins} 贝壳</div>
-                   ${unlocked ? `<div class="reward-row reward-unlock">🔓 解锁「${esc(unlocked.nameZh)}」 ${unlocked.emoji}</div>` : ''}
-                 </div>`}
+            ${
+              isReplay
+                ? '<p class="hint">重玩不再重复发奖励哦</p>'
+                : `<div class="reward-rows">
+                     <div class="reward-row reward-coin">🐚 +${scene.reward.coins} 贝壳</div>
+                     ${unlocked ? `<div class="reward-row reward-unlock">🔓 解锁「${esc(unlocked.nameZh)}」 ${unlocked.emoji}</div>` : ''}
+                   </div>`
+            }
             <div class="reward-vocab">
               <div class="reward-vocab-title">📒 这段的新词</div>
               ${scene.vocab
@@ -356,21 +395,23 @@ export function renderIsland(): HTMLElement {
                     <b>${esc(v.word)}</b><span>${esc(v.meaning)}</span>
                     <button class="rv-add" data-w="${escAttr(v.word)}" data-m="${escAttr(v.meaning)}">＋</button>
                   </div>`,
-                ).join('')}
+                )
+                .join('')}
               <button class="btn-soft" id="add-all">收藏全部新词</button>
             </div>
             <button class="btn-quest vn-begin" id="back-island"><span class="quest-text"><b>回到小岛</b> 🏝️</span></button>
           </div>
-        </div>`
-      sceneEl.querySelector('#back-island')?.addEventListener('click', returnToMap)
-      sceneEl.querySelector('#add-all')?.addEventListener('click', (e) => {
+        </div>
+      `
+      el.querySelector('#back-island')?.addEventListener('click', map)
+      el.querySelector('#add-all')?.addEventListener('click', (e) => {
         storage.addSavedWords(scene.vocab)
         ;(e.target as HTMLElement).textContent = '✓ 已全部收藏'
       })
-      sceneEl.querySelectorAll('.rv-say').forEach((b) =>
+      el.querySelectorAll('.rv-say').forEach((b) =>
         b.addEventListener('click', () => tts.speak((b as HTMLElement).dataset.say ?? '', 'en-US', 0.85)),
       )
-      sceneEl.querySelectorAll('.rv-add').forEach((b) =>
+      el.querySelectorAll('.rv-add').forEach((b) =>
         b.addEventListener('click', () => {
           const btn = b as HTMLElement
           storage.addSavedWords([{ word: btn.dataset.w!, meaning: btn.dataset.m! }])
@@ -383,10 +424,8 @@ export function renderIsland(): HTMLElement {
     if (phase === 'intro') paintIntro()
   }
 
-  // ── Plot visit overlay ────────────────────────────────────────────────────
   function visitPlot(plot: Plot) {
     tts.stopSpeaking()
-    game?.pause()
     let showZh = false
     let line = plot.lines[Math.floor(Math.random() * plot.lines.length)]
 
@@ -422,14 +461,21 @@ export function renderIsland(): HTMLElement {
               .map(
                 (v) => `<span class="word-chip"><b>${esc(v.word)}</b> ${esc(v.meaning)}
                   <button class="vw-add" data-w="${escAttr(v.word)}" data-m="${escAttr(v.meaning)}">＋</button></span>`,
-              ).join('')}
+              )
+              .join('')}
           </div>
-        </div>`
+        </div>
+      `
 
       overlay.querySelector('#visit-close')?.addEventListener('click', close)
-      overlay.addEventListener('click', (e) => { if (e.target === overlay) close() })
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) close()
+      })
       overlay.querySelector('#visit-say')?.addEventListener('click', () => tts.speak(line.en, 'en-US', 0.92))
-      overlay.querySelector('#visit-zh-btn')?.addEventListener('click', () => { showZh = !showZh; paint() })
+      overlay.querySelector('#visit-zh-btn')?.addEventListener('click', () => {
+        showZh = !showZh
+        paint()
+      })
       overlay.querySelector('#visit-next')?.addEventListener('click', () => {
         line = plot.lines[Math.floor(Math.random() * plot.lines.length)]
         paint()
@@ -452,8 +498,7 @@ export function renderIsland(): HTMLElement {
     function close() {
       tts.stopSpeaking()
       overlay.remove()
-      game?.resume()
-      updateHud()
+      map()
     }
 
     paint()
@@ -461,16 +506,19 @@ export function renderIsland(): HTMLElement {
     speakLine()
   }
 
-  // ── Toast ─────────────────────────────────────────────────────────────────
   function toast(msg: string) {
     const t = document.createElement('div')
     t.className = 'island-toast'
     t.textContent = msg
     el.appendChild(t)
     setTimeout(() => t.classList.add('show'), 10)
-    setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300) }, 2200)
+    setTimeout(() => {
+      t.classList.remove('show')
+      setTimeout(() => t.remove(), 300)
+    }, 2200)
   }
 
+  map()
   return el
 }
 

@@ -23,7 +23,6 @@
   "dependencies": {
     "concurrently": "^10.0.3",
     "cors": "^2.8.6",
-    "express": "^5.2.1",
-    "phaser": "^4.1.0"
+    "express": "^5.2.1"
   }
 }
