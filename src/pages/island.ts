@@ -158,6 +158,13 @@ export function renderIsland(): HTMLElement {
 
   // ---- Visual-novel scene player ---------------------------------------
 
+  const SCENE_DECOR: Record<string, string[]> = {
+    beach: ['🐚', '🌊', '✨', '🦀'],
+    bakery: ['🍞', '🧈', '✨', '🥐'],
+    lighthouse: ['⭐', '🌙', '✨', '🕯️'],
+    garden: ['🌸', '🦋', '✨', '🌻'],
+  }
+
   type Who = 'narration' | 'fox' | 'resident' | 'player'
   type Line = { who: Who; name?: string; emoji?: string; en: string; zh: string }
 
@@ -165,7 +172,7 @@ export function renderIsland(): HTMLElement {
     const isReplay = storage.getIsland().completedScenes.includes(scene.id)
     let phase: 'intro' | 'play' | 'reward' = 'intro'
     let index = 0
-    let showZh = false
+    let showZh = true
 
     let current: Line | null = null
     let choosing = false
@@ -178,9 +185,51 @@ export function renderIsland(): HTMLElement {
     let shown = 0
 
     const bg = `scene-bg-${scene.spotId}`
+    const vocabMap = new Map(scene.vocab.map((v) => [v.word.toLowerCase(), v.meaning]))
 
     function speak(en: string) {
       if (isTTSSupported() && storage.getVoiceAutoRead()) tts.speak(en, 'en-US', 0.92)
+    }
+
+    function decorHtml(): string {
+      const emojis = SCENE_DECOR[scene.spotId] ?? ['✨']
+      return emojis.map((e, i) =>
+        `<span class="vn-decor vn-decor-${i}">${e}</span>`
+      ).join('')
+    }
+
+    function progressHtml(): string {
+      const total = scene.steps.length
+      const pct = Math.round(((index + 1) / total) * 100)
+      return `<div class="vn-progress"><div class="vn-progress-fill" style="width:${pct}%"></div></div>`
+    }
+
+    function highlightVocab(text: string): string {
+      let html = esc(text)
+      for (const [word, meaning] of vocabMap) {
+        const re = new RegExp(`\\b(${word})\\b`, 'gi')
+        html = html.replace(re, `<span class="vn-word" data-word="$1" data-meaning="${escAttr(meaning)}">$1</span>`)
+      }
+      return html
+    }
+
+    function bindWordTaps() {
+      el.querySelectorAll('.vn-word').forEach((w) => {
+        w.addEventListener('click', (e) => {
+          e.stopPropagation()
+          const span = w as HTMLElement
+          const word = span.dataset.word ?? ''
+          const meaning = span.dataset.meaning ?? ''
+          el.querySelectorAll('.vn-word-tip').forEach((t) => t.remove())
+          const tip = document.createElement('div')
+          tip.className = 'vn-word-tip'
+          tip.innerHTML = `<b>${esc(word)}</b> ${esc(meaning)}`
+          span.style.position = 'relative'
+          span.appendChild(tip)
+          tts.speak(word, 'en-US', 0.85)
+          setTimeout(() => tip.remove(), 2500)
+        })
+      })
     }
 
     function enter(i: number) {
@@ -252,7 +301,11 @@ export function renderIsland(): HTMLElement {
       stopTyper()
       shown = fullText.length
       typing = false
-      updateText()
+      const t = el.querySelector('#vn-text')
+      if (t) {
+        t.innerHTML = highlightVocab(fullText)
+        bindWordTaps()
+      }
       const hint = el.querySelector('.vn-tap-hint') as HTMLElement | null
       if (hint && !choosing) hint.style.visibility = 'visible'
     }
@@ -270,20 +323,27 @@ export function renderIsland(): HTMLElement {
     function sprite(line: Line | null): string {
       if (!line) return ''
       if (line.who === 'fox')
-        return `<img src="${FOX_ICON}" class="vn-sprite vn-pop" alt="${AGENT_NAME}" />`
+        return `<img src="${FOX_ICON}" class="vn-sprite vn-breathe" alt="${AGENT_NAME}" />`
       if (line.who === 'resident')
-        return `<span class="vn-sprite vn-sprite-emoji vn-pop">${line.emoji ?? '🙂'}</span>`
+        return `<span class="vn-sprite vn-sprite-emoji vn-breathe">${line.emoji ?? '🙂'}</span>`
       return `<span class="vn-sprite vn-sprite-scene">${scene.emoji}</span>`
     }
 
     function paintIntro() {
       el.innerHTML = `
         <div class="vn ${bg}">
+          ${decorHtml()}
           <div class="vn-intro">
             <div class="vn-intro-emoji vn-pop">${scene.emoji}</div>
             <h1>${esc(scene.titleZh)}</h1>
             <p class="vn-intro-en">${esc(scene.title)}</p>
             <p class="vn-setting">${esc(scene.setting)}</p>
+            <div class="vn-vocab-preview">
+              <div class="vn-vocab-title">📖 本节生词（点击可查看释义）</div>
+              <div class="vn-vocab-chips">
+                ${scene.vocab.map((v) => `<span class="vn-vocab-chip"><b>${esc(v.word)}</b> ${esc(v.meaning)}</span>`).join('')}
+              </div>
+            </div>
             <button class="btn-quest vn-begin" id="begin"><span class="quest-text"><b>开始故事</b></span><span class="quest-go">▶</span></button>
             <button class="vn-leave-text" id="leave">← 回小岛</button>
           </div>
@@ -304,6 +364,8 @@ export function renderIsland(): HTMLElement {
 
       el.innerHTML = `
         <div class="vn ${bg}">
+          ${decorHtml()}
+          ${progressHtml()}
           <div class="vn-top">
             <button class="vn-icon-btn" id="leave2">←</button>
             <span class="vn-chip">${scene.emoji} ${esc(scene.titleZh)}</span>
@@ -321,6 +383,7 @@ export function renderIsland(): HTMLElement {
             ${showZh && line?.zh ? `<div class="vn-zh">${esc(line.zh)}</div>` : ''}
             <div class="vn-foot">
               <button class="vn-say" id="vn-say">🔊 再听</button>
+              <span class="vn-word-hint">💡 点击<u>高亮单词</u>查看释义</span>
               ${opts ? '' : '<span class="vn-tap-hint">轻点屏幕继续 ▶</span>'}
             </div>
             ${
@@ -328,7 +391,7 @@ export function renderIsland(): HTMLElement {
                 ? `<div class="vn-choices">${opts
                     .map(
                       (o, i) =>
-                        `<button class="vn-choice" data-i="${i}"><span class="ce">${esc(o.en)}</span>${showZh ? `<span class="cz">${esc(o.zh)}</span>` : ''}</button>`,
+                        `<button class="vn-choice" data-i="${i}"><span class="ce">${esc(o.en)}</span><span class="cz">${esc(o.zh)}</span></button>`,
                     )
                     .join('')}</div>`
                 : ''
@@ -338,7 +401,7 @@ export function renderIsland(): HTMLElement {
       `
 
       el.querySelector('.vn')?.addEventListener('click', (e) => {
-        if ((e.target as HTMLElement).closest('button')) return
+        if ((e.target as HTMLElement).closest('button, .vn-word')) return
         advance()
       })
       el.querySelector('#leave2')?.addEventListener('click', (e) => {
@@ -351,13 +414,15 @@ export function renderIsland(): HTMLElement {
         e.stopPropagation()
         showZh = !showZh
         const keepShown = shown
+        const wasDone = !typing
         paintPlay()
-        shown = keepShown
-        typing = false
-        stopTyper()
-        updateText()
-        const hint = el.querySelector('.vn-tap-hint') as HTMLElement | null
-        if (hint) hint.style.visibility = 'visible'
+        if (wasDone) {
+          finishTyper()
+        } else {
+          shown = keepShown
+          typing = true
+          updateText()
+        }
       })
       el.querySelector('#vn-say')?.addEventListener('click', (e) => {
         e.stopPropagation()
