@@ -29,7 +29,7 @@ export class CallSession {
   }
 
   /** Record until ~silence after speech (or maxMs). Returns null if nothing was said. */
-  recordUtterance(silenceMs = 1300, maxMs = 15000): Promise<Blob | null> {
+  recordUtterance(silenceMs = 1000, maxMs = 15000): Promise<Blob | null> {
     return new Promise((resolve) => {
       if (this.stopped) return resolve(null)
       const pick = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4']
