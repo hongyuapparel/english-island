@@ -147,10 +147,38 @@ export class VoiceHelper {
     browserSpeakChunks(chunks, lang, rate)
   }
 
+  /** Like speak(), but resolves when the speech finishes (for hands-free mode). */
+  speakAwait(text: string, lang = 'en-US', rate = 0.95): Promise<void> {
+    this.stopSpeaking()
+    const clean = cleanForSpeech(text)
+    if (!clean) return Promise.resolve()
+    const settings = storage.getAiSettings()
+    if (lang.startsWith('en') && useNeuralVoice(settings)) {
+      const style: TtsStyle = rate < 0.85 ? 'slow' : 'warm'
+      return neuralSpeak(clean, settings, style).catch(() => browserSpeakAwait(clean, lang, rate))
+    }
+    return browserSpeakAwait(clean, lang, rate)
+  }
+
   stopSpeaking() {
     speechSynthesis.cancel()
     neuralStop()
   }
+}
+
+function browserSpeakAwait(clean: string, lang: string, rate: number): Promise<void> {
+  return new Promise((resolve) => {
+    const utter = new SpeechSynthesisUtterance(clean.slice(0, 500))
+    utter.lang = lang
+    utter.rate = rate
+    utter.pitch = 1.05
+    utter.volume = 1
+    const v = pickBrowserVoice(lang)
+    if (v) utter.voice = v
+    utter.onend = () => resolve()
+    utter.onerror = () => resolve()
+    speechSynthesis.speak(utter)
+  })
 }
 
 function cleanForSpeech(text: string): string {
@@ -176,6 +204,7 @@ function browserSpeak(clean: string, lang: string, rate: number): void {
   utter.lang = lang
   utter.rate = rate
   utter.pitch = 1.05
+  utter.volume = 1
   const v = pickBrowserVoice(lang)
   if (v) utter.voice = v
   speechSynthesis.speak(utter)
@@ -192,6 +221,7 @@ function browserSpeakChunks(chunks: string[], lang: string, rate: number): void 
     utter.lang = lang
     utter.rate = rate
     utter.pitch = 1.05
+    utter.volume = 1
     if (v) utter.voice = v
     utter.onend = speakNext
     speechSynthesis.speak(utter)
