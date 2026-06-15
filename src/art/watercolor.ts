@@ -28,8 +28,36 @@ export const WATERCOLOR_DEFS = `
       </feTurbulence>
       <feDisplacementMap in="SourceGraphic" in2="n" scale="3.4" xChannelSelector="R" yChannelSelector="G"/>
     </filter>
+    <!-- static hand-drawn ink (no animation) — cheap enough for many map buildings -->
+    <filter id="wcInkStatic" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="2" seed="6" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="2.6" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
   </defs>
 </svg>`
+
+/** A small watercolor building for the island map (static ink for performance). */
+export function buildingArt(roof: string, wall: string, emoji: string): string {
+  return `
+  <svg class="isl-building-svg" viewBox="0 0 100 112" aria-hidden="true">
+    <ellipse cx="50" cy="102" rx="33" ry="7" fill="#5a4a36" opacity="0.18" filter="url(#wcSoft)"/>
+    <g filter="url(#wcBleed)">
+      <rect x="26" y="50" width="48" height="46" rx="4" fill="${wall}"/>
+      <path d="M18 53 L50 24 L82 53 Z" fill="${roof}"/>
+      <rect x="43" y="70" width="15" height="26" rx="3" fill="#a07a4c"/>
+      <rect x="32" y="58" width="11" height="11" rx="2" fill="#cfe6ee"/>
+      <rect x="58" y="58" width="11" height="11" rx="2" fill="#cfe6ee"/>
+    </g>
+    <g fill="none" stroke="${INK}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" filter="url(#wcInkStatic)">
+      <rect x="26" y="50" width="48" height="46" rx="4"/>
+      <path d="M18 53 L50 24 L82 53"/>
+      <rect x="43" y="70" width="15" height="26" rx="3"/>
+      <rect x="32" y="58" width="11" height="11" rx="2"/>
+      <rect x="58" y="58" width="11" height="11" rx="2"/>
+    </g>
+    <text x="50" y="19" text-anchor="middle" font-size="20">${emoji}</text>
+  </svg>`
+}
 
 const INK = '#4a3f37'
 

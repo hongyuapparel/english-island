@@ -327,7 +327,100 @@ export const PLOTS: Plot[] = [
       { word: 'quiet', meaning: '安静的' },
     ],
   },
+  {
+    id: 'cottage',
+    name: 'Cosy Cottage',
+    nameZh: '温馨小屋',
+    emoji: '🏡',
+    resident: 'Willow',
+    residentEmoji: '🦔',
+    x: 70,
+    y: 62,
+    cost: 80,
+    lines: [
+      { en: "Welcome home! The kettle is always warm here.", zh: '欢迎回家！这里的水壶永远是热的。' },
+      { en: "A cosy home makes the whole island feel kinder.", zh: '一个温馨的家，会让整座岛都更温暖。' },
+      { en: "Come in and rest your feet for a while.", zh: '进来歇歇脚吧。' },
+      { en: "I knitted you a little scarf. Try it on!", zh: '我给你织了条小围巾，试试看！' },
+    ],
+    vocab: [
+      { word: 'cosy', meaning: '温馨舒适的' },
+      { word: 'kettle', meaning: '水壶' },
+      { word: 'rest', meaning: '休息' },
+    ],
+  },
+  {
+    id: 'school',
+    name: 'Little School',
+    nameZh: '小学堂',
+    emoji: '🏫',
+    resident: 'Miss Quill',
+    residentEmoji: '🦆',
+    x: 42,
+    y: 42,
+    cost: 110,
+    lines: [
+      { en: "Every day we learn one new word together.", zh: '我们每天一起学一个新单词。' },
+      { en: "Mistakes are just steps on the way to better.", zh: '犯错只是通往进步的台阶。' },
+      { en: "Read it out loud — that's how it sticks!", zh: '大声读出来，这样才记得牢！' },
+      { en: "You're getting braver with English every day.", zh: '你说英语一天比一天更勇敢了。' },
+    ],
+    vocab: [
+      { word: 'learn', meaning: '学习' },
+      { word: 'mistake', meaning: '错误' },
+      { word: 'brave', meaning: '勇敢的' },
+    ],
+  },
+  {
+    id: 'dock',
+    name: 'Harbour Dock',
+    nameZh: '港口码头',
+    emoji: '⚓',
+    resident: 'Captain Finn',
+    residentEmoji: '🦭',
+    x: 18,
+    y: 54,
+    cost: 150,
+    lines: [
+      { en: "Ships from faraway lands stop here now.", zh: '现在远方的船都会在这里停靠。' },
+      { en: "The harbour means our little town is growing!", zh: '有了港口，说明我们的小镇在长大！' },
+      { en: "Hop aboard — I'll show you the open sea.", zh: '上船吧，我带你去看大海。' },
+      { en: "Every great town begins with a busy dock.", zh: '每座繁华的城镇，都从一座忙碌的码头开始。' },
+    ],
+    vocab: [
+      { word: 'harbour', meaning: '港口' },
+      { word: 'ship', meaning: '船' },
+      { word: 'aboard', meaning: '在船上、上船' },
+    ],
+  },
 ]
+
+// --- Town growth: your island levels up as you build, toward a final goal. ---
+export const TOWN_GOAL = '童话小镇'
+
+export interface TownTier {
+  min: number
+  name: string
+  emoji: string
+}
+
+export const TOWN_TIERS: TownTier[] = [
+  { min: 0, name: '荒滩孤岛', emoji: '🏝️' },
+  { min: 1, name: '海边小村', emoji: '🛖' },
+  { min: 2, name: '热闹集镇', emoji: '🏘️' },
+  { min: 4, name: '繁忙港镇', emoji: '⛵' },
+  { min: 6, name: '童话小镇', emoji: '🏰' },
+]
+
+export function townTier(builtCount: number): TownTier {
+  let tier = TOWN_TIERS[0]
+  for (const t of TOWN_TIERS) if (builtCount >= t.min) tier = t
+  return tier
+}
+
+export function nextTier(builtCount: number): TownTier | null {
+  return TOWN_TIERS.find((t) => t.min > builtCount) ?? null
+}
 
 export function sceneById(id: string): Scene | undefined {
   return SCENES.find((s) => s.id === id)

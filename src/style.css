@@ -1905,22 +1905,31 @@ input:focus, select:focus, textarea:focus {
 }
 
 /* --- tappable words + tooltip --- */
-.vn-word { cursor: pointer; position: relative; border-radius: 4px; }
+/* every word is tappable, so give them all a faint dotted underline cue */
+.vn-word {
+  cursor: pointer; position: relative; border-radius: 4px;
+  text-decoration: underline; text-decoration-style: dotted;
+  text-decoration-color: rgba(124,92,191,0.35); text-underline-offset: 3px;
+}
 .vn-word:active { background: rgba(124,92,191,0.14); }
-/* preset story words stand out as "new vocab" */
+/* preset story words stand out more as "new vocab" */
 .vn-word-key {
   color: var(--color-primary); font-weight: 600;
-  text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px;
+  text-decoration-color: var(--color-primary);
 }
 .vn-tip-load { opacity: 0.7; }
 .vn-word-tip {
   position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
-  background: rgba(45,36,56,0.94); color: #fff; padding: 0.35rem 0.7rem;
-  border-radius: 10px; font-size: 0.78rem; white-space: nowrap; z-index: 100;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.25); animation: vn-pop 0.2s ease;
-  pointer-events: none;
+  background: rgba(45,36,56,0.96); color: #fff; padding: 0.3rem 0.5rem 0.3rem 0.35rem;
+  border-radius: 12px; font-size: 0.82rem; white-space: nowrap; z-index: 100;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.28); animation: vn-pop 0.2s ease;
+  display: inline-flex; align-items: center; gap: 0.35rem;
 }
-.vn-word-tip b { color: #ffcf4a; margin-right: 0.3rem; }
+.vn-word-tip .wt-say {
+  border: none; background: rgba(255,255,255,0.16); color: #fff; cursor: pointer;
+  width: 26px; height: 26px; border-radius: 50%; font-size: 0.85rem; flex-shrink: 0;
+}
+.vn-word-tip b { color: #ffcf4a; margin-right: 0.25rem; }
 .vn-word-hint { font-size: 0.72rem; color: var(--color-text-muted); opacity: 0.7; }
 
 /* --- vocab preview on intro screen --- */
@@ -2064,6 +2073,26 @@ input:focus, select:focus, textarea:focus {
 .plot-ghost::before { content: ''; }
 .plot-unbuilt .plot-ghost > * { transform: rotate(-45deg); }
 .plot-cost { margin-top: 4px; font-size: 0.68rem; font-weight: 700; color: #6a4a1e; background: #fff3d6; border-radius: 999px; padding: 1px 7px; white-space: nowrap; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+.plot-unbuilt.can-build .plot-ghost { border-color: var(--color-accent); background: rgba(255,243,214,0.7); animation: pin-glow 1.6s ease-in-out infinite; }
+
+/* watercolor buildings on the island map */
+.isl-building { display: block; }
+.isl-building-svg { width: 66px; height: 74px; display: block; filter: drop-shadow(0 6px 8px rgba(74,63,55,0.18)); }
+.isl-pop { animation: vn-pop 0.4s cubic-bezier(.2,1.3,.5,1); }
+
+/* town goal / level banner */
+.isl-goal {
+  position: absolute; left: 0.7rem; right: 0.7rem; z-index: 9;
+  top: calc(2.9rem + env(safe-area-inset-top));
+  background: rgba(255,255,255,0.9); border-radius: 14px; padding: 0.5rem 0.7rem;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.1); backdrop-filter: blur(3px);
+}
+.isl-goal-top { display: flex; justify-content: space-between; align-items: center; }
+.isl-goal-name { font-family: var(--font-display); font-weight: 700; font-size: 0.92rem; color: #2d4a6b; }
+.isl-goal-target { font-size: 0.78rem; color: var(--color-accent); font-weight: 700; }
+.isl-goal-bar { height: 7px; background: rgba(0,0,0,0.08); border-radius: 999px; margin: 0.4rem 0 0.3rem; overflow: hidden; }
+.isl-goal-fill { height: 100%; background: linear-gradient(90deg, #ffb14a, #ff7d3a); border-radius: 999px; transition: width 0.5s ease; }
+.isl-goal-hint { font-size: 0.72rem; color: var(--color-text-muted); }
 
 .visit-overlay { position: fixed; inset: 0; background: rgba(45,36,56,0.45); display: flex; align-items: flex-end; justify-content: center; z-index: 200; padding: 0 0.6rem calc(0.6rem + env(safe-area-inset-bottom)); }
 .visit-card { background: var(--color-surface); border-radius: 22px 22px 18px 18px; width: 100%; max-width: 460px; padding: 1.1rem 1.1rem 1rem; box-shadow: 0 -8px 30px rgba(0,0,0,0.22); position: relative; animation: vn-fade 0.2s ease; }

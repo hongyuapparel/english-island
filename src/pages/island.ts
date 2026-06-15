@@ -1,11 +1,21 @@
-import { SPOTS, PLOTS, DAILY_COLLECT, sceneById, spotById, plotById } from '../data/island'
+import {
+  SPOTS,
+  PLOTS,
+  DAILY_COLLECT,
+  TOWN_GOAL,
+  townTier,
+  nextTier,
+  sceneById,
+  spotById,
+  plotById,
+} from '../data/island'
 import { FOX_ICON } from '../asset'
 import type { Scene, Spot, Plot } from '../data/island'
 import { storage } from '../storage'
 import { VoiceHelper, isTTSSupported } from '../voice/speech'
 import { AGENT_NAME } from '../types'
 import { goTo } from '../app'
-import { WATERCOLOR_DEFS, sceneArt, foxArt, hasSceneArt } from '../art/watercolor'
+import { WATERCOLOR_DEFS, sceneArt, foxArt, hasSceneArt, buildingArt } from '../art/watercolor'
 import { lookupWord, transcribeAudio } from '../ai/chat'
 import { CallSession } from '../voice/recorder'
 
@@ -45,8 +55,14 @@ export function renderIsland(): HTMLElement {
     const stats = storage.getStats()
     const todaySpot = SPOTS.find((s) => spotState(s) === 'today' && s.sceneId)
 
+    const builtCount = island.built.length
+    const tier = townTier(builtCount)
+    const next = nextTier(builtCount)
+    const goalPct = Math.round((builtCount / PLOTS.length) * 100)
+
     el.innerHTML = `
       <div class="island-scene">
+        ${WATERCOLOR_DEFS}
         <div class="isl-sky"></div>
         <div class="isl-sun"></div>
         <div class="isl-cloud isl-cloud-1">☁️</div>
@@ -65,8 +81,21 @@ export function renderIsland(): HTMLElement {
           <div class="isl-title">🏝️ 英语小岛</div>
           <div class="isl-hud-stats">
             <span class="isl-coins">🐚 <b>${island.coins}</b></span>
-            <span class="isl-prosper">🏠 <b>${island.built.length}</b></span>
+            <span class="isl-prosper">🏠 <b>${builtCount}</b></span>
           </div>
+        </div>
+
+        <div class="isl-goal">
+          <div class="isl-goal-top">
+            <span class="isl-goal-name">${tier.emoji} ${tier.name}</span>
+            <span class="isl-goal-target">🎯 ${TOWN_GOAL}</span>
+          </div>
+          <div class="isl-goal-bar"><div class="isl-goal-fill" style="width:${goalPct}%"></div></div>
+          <div class="isl-goal-hint">${
+            next
+              ? `已建 ${builtCount}/${PLOTS.length} 座 · 再建 ${next.min - builtCount} 座升级「${next.name}」`
+              : '🎉 你已把荒岛建成了童话小镇！'
+          }</div>
         </div>
       </div>
 
@@ -100,16 +129,18 @@ export function renderIsland(): HTMLElement {
     const island = storage.getIsland()
     const built = island.built.includes(plot.id)
     if (!built) {
+      const affordable = island.coins >= plot.cost
       return `
-        <button class="plot-pin plot-unbuilt" data-id="${plot.id}" style="left:${plot.x}%;top:${plot.y}%">
+        <button class="plot-pin plot-unbuilt ${affordable ? 'can-build' : ''}" data-id="${plot.id}" style="left:${plot.x}%;top:${plot.y}%">
           <span class="plot-ghost">${plot.emoji}</span>
           <span class="plot-cost">🔨 ${plot.cost}🐚</span>
         </button>`
     }
     const canCollect = storage.canCollect(plot.id)
+    const style = BUILDING_STYLE[plot.id] ?? { roof: '#c98b56', wall: '#f0e0c0' }
     return `
       <button class="plot-pin plot-built" data-id="${plot.id}" style="left:${plot.x}%;top:${plot.y}%">
-        <span class="spot-bubble"><span class="spot-emoji">${plot.emoji}</span></span>
+        <span class="isl-building isl-pop">${buildingArt(style.roof, style.wall, plot.residentEmoji)}</span>
         <span class="spot-label">${esc(plot.nameZh)}</span>
         ${canCollect ? '<span class="plot-collect">🐚</span>' : ''}
       </button>`
@@ -120,15 +151,31 @@ export function renderIsland(): HTMLElement {
     const island = storage.getIsland()
     if (!island.built.includes(plot.id)) {
       if (island.coins < plot.cost) {
-        toast(`还差 ${plot.cost - island.coins} 🐚，去玩故事或收集贝壳`)
+        toast(`还差 ${plot.cost - island.coins} 🐚，去玩故事过关、或找居民收集贝壳`)
         return
       }
+      const before = island.built.length
       storage.buildPlot(plot.id, plot.cost)
+      const after = before + 1
+      const leveledUp = townTier(after).name !== townTier(before).name
       toast(`🎉 建好了「${plot.nameZh}」！`)
+      if (leveledUp) {
+        const t = townTier(after)
+        setTimeout(() => toast(`${t.emoji} 小镇升级为「${t.name}」！`), 1300)
+      }
       map()
       return
     }
     visitPlot(plot)
+  }
+
+  const BUILDING_STYLE: Record<string, { roof: string; wall: string }> = {
+    farm: { roof: '#cf8b4a', wall: '#f1e2bd' },
+    market: { roof: '#c95f6b', wall: '#f4e4d0' },
+    fountain: { roof: '#6fa8c9', wall: '#e9eff1' },
+    cottage: { roof: '#b06a4a', wall: '#f2e3c9' },
+    school: { roof: '#7b9e6a', wall: '#eff1e0' },
+    dock: { roof: '#5e8aa0', wall: '#e7dec9' },
   }
 
   function trailPath(): string {
@@ -248,22 +295,29 @@ export function renderIsland(): HTMLElement {
           const span = w as HTMLElement
           const word = (span.dataset.w ?? '').replace(/[^A-Za-z'’-]/g, '')
           if (!word) return
-          tts.speak(word, 'en-US', 0.82)
+          tts.speak(word, 'en-US', 0.8)
           el.querySelectorAll('.vn-word-tip').forEach((t) => t.remove())
           const tip = document.createElement('div')
           tip.className = 'vn-word-tip'
           const preset = vocabMap.get(word.toLowerCase())
-          tip.innerHTML = `<b>${esc(word)}</b> ${preset ? esc(preset) : '<span class="vn-tip-load">查询中…</span>'}`
+          const body = preset ? esc(preset) : '<span class="vn-tip-load">查询中…</span>'
+          tip.innerHTML = `<button class="wt-say">🔊</button><span class="wt-body"><b>${esc(word)}</b> ${body}</span>`
+          tip.querySelector('.wt-say')?.addEventListener('click', (ev) => {
+            ev.stopPropagation()
+            tts.speak(word, 'en-US', 0.8)
+          })
           span.appendChild(tip)
           if (!preset) {
             try {
               const meaning = await lookupWord(storage.getAiSettings(), word, current?.en ?? '')
-              if (tip.isConnected) tip.innerHTML = `<b>${esc(word)}</b> ${esc(meaning || '（未找到释义）')}`
+              const bodyEl = tip.querySelector('.wt-body')
+              if (bodyEl) bodyEl.innerHTML = `<b>${esc(word)}</b> ${esc(meaning || '（未找到释义）')}`
             } catch {
-              if (tip.isConnected) tip.innerHTML = `<b>${esc(word)}</b> <span class="vn-tip-load">查询失败，点🔊听发音</span>`
+              const bodyEl = tip.querySelector('.wt-body')
+              if (bodyEl) bodyEl.innerHTML = `<b>${esc(word)}</b> <span class="vn-tip-load">查询失败，点🔊听发音</span>`
             }
           }
-          setTimeout(() => tip.remove(), 4600)
+          setTimeout(() => tip.remove(), 6000)
         })
       })
     }
@@ -398,10 +452,10 @@ export function renderIsland(): HTMLElement {
         tts.stopSpeaking()
         recording = true
         micBtn.classList.add('rec')
-        micBtn.textContent = '● 录音中…读完自动停'
+        micBtn.textContent = '● 录音中…读完会自动停（也可点我结束）'
         status.textContent = '🎤 在听你读…'
         const rec = await ensureRecorder()
-        const blob = await rec.recordUtterance(900, 9000)
+        const blob = await rec.recordUtterance(650, 9000)
         recording = false
         micBtn.classList.remove('rec')
         micBtn.textContent = '🎤 再读一遍'
