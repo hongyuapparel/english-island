@@ -99,16 +99,16 @@ export function renderSettings(): HTMLElement {
 
       <div class="provider-section full">
         <h3>🔊 朗读语音</h3>
-        <p class="hint">「系统语音」用手机自带的离线语音，最稳定、即时、不依赖网络（推荐）。想要更热情、更自然的真人级女声，可选 Gemini 的 Sulafat（需 Gemini Key，偶尔会因网络略有延迟）。<br>💡 iPhone 可在「设置 → 辅助功能 → 朗读内容 → 声音 → 英语」里下载一个"增强/Enhanced"女声，本地语音会立刻好听很多。</p>
+        <p class="hint">「AIHubMix 热情语音」用升级版 gpt-4o-mini-tts，带感情、抑扬顿挫，且进故事时会<b>提前生成好整段语音</b>，朗读时即时播放、几乎无延迟（用你的 AIHubMix Key，推荐）。音色可选 coral（热情女声）。<br>「系统语音」离线最稳但偏平；想本地更好听可在 iPhone「设置→辅助功能→朗读内容→声音→英语」下载"增强"女声。</p>
         <button type="button" class="btn btn-primary" id="sound-test" style="width:100%;margin-bottom:0.6rem;">🔊 点我测试声音</button>
         <div id="sound-test-status" class="status-msg" style="margin-bottom:0.6rem;"></div>
         <div class="field">
           <label for="ttsVoice">语音类型</label>
           <select id="ttsVoice">
-            <option value="free" ${settings.ttsVoice === 'free' ? 'selected' : ''}>自然语音 Polly（免费，推荐）</option>
-            <option value="openai" ${settings.ttsVoice === 'openai' ? 'selected' : ''}>OpenAI 语音 / AIHubMix（需 Key）</option>
-            <option value="system" ${settings.ttsVoice === 'system' ? 'selected' : ''}>系统语音（最稳定/离线）</option>
-            <option value="natural" ${settings.ttsVoice === 'natural' ? 'selected' : ''}>Gemini 语音（需 Key）</option>
+            <option value="openai" ${settings.ttsVoice === 'openai' ? 'selected' : ''}>AIHubMix 热情语音（推荐·已升级带感情）</option>
+            <option value="natural" ${settings.ttsVoice === 'natural' ? 'selected' : ''}>Gemini 语音 Sulafat（热情·需 Key）</option>
+            <option value="system" ${settings.ttsVoice === 'system' ? 'selected' : ''}>系统语音（离线最稳，但偏平）</option>
+            <option value="free" ${settings.ttsVoice === 'free' ? 'selected' : ''}>自然语音 Polly（免费）</option>
           </select>
         </div>
         <div class="field" id="voice-field">

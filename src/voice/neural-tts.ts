@@ -34,14 +34,16 @@ export const FREE_VOICES: { name: string; zh: string }[] = [
   { name: 'Ivy', zh: '美音童声' },
 ]
 
-/** OpenAI-compatible (AIHubMix) voices. */
+/** OpenAI-compatible (AIHubMix) voices — the expressive gpt-4o-mini-tts ones first. */
 export const OPENAI_VOICES: { name: string; zh: string }[] = [
-  { name: 'nova', zh: '温暖女声' },
+  { name: 'coral', zh: '热情女声·推荐' },
   { name: 'shimmer', zh: '轻柔女声' },
-  { name: 'fable', zh: '故事感' },
+  { name: 'sage', zh: '温柔女声' },
+  { name: 'nova', zh: '明亮女声' },
+  { name: 'ballad', zh: '故事感' },
+  { name: 'verse', zh: '生动多变' },
   { name: 'alloy', zh: '自然中性' },
   { name: 'echo', zh: '沉稳男声' },
-  { name: 'onyx', zh: '低沉男声' },
 ]
 
 export function useNeuralVoice(settings: AiSettings): boolean {
@@ -57,21 +59,45 @@ function freeVoiceUrl(text: string, settings: AiSettings): string {
   return `https://api.streamelements.com/kappa/v2/speech?voice=${encodeURIComponent(voice)}&text=${encodeURIComponent(text.slice(0, 500))}`
 }
 
-/** OpenAI-compatible TTS (AIHubMix): fetch the MP3 and play it as a blob. */
-async function fetchOpenAiTts(text: string, settings: AiSettings): Promise<string> {
+/** Emotion/delivery instruction for the expressive gpt-4o-mini-tts model. */
+function ttsInstructions(style: TtsStyle): string {
+  if (style === 'slow') {
+    return 'Speak slowly and very clearly, in a warm, bright, encouraging tone with gentle, lively intonation, for a child learning English.'
+  }
+  return 'Speak in a warm, cheerful, enthusiastic voice with lively, expressive intonation and natural ups and downs, like a friendly fox companion happily telling a story to a child learning English. Keep it bright, gentle and encouraging.'
+}
+
+/** OpenAI-compatible TTS (AIHubMix): expressive gpt-4o-mini-tts, played as a blob.
+ *  Falls back to tts-1 if the endpoint doesn't accept the newer model. */
+async function fetchOpenAiTts(
+  text: string,
+  settings: AiSettings,
+  style: TtsStyle,
+): Promise<string> {
   const base = (settings.openaiBaseUrl || 'https://aihubmix.com/v1').replace(/\/$/, '')
-  const res = await fetch(`${base}/audio/speech`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${settings.openaiApiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'tts-1',
-      voice: settings.openaiVoice || 'nova',
-      input: text,
-    }),
-  })
+  const voice = settings.openaiVoice || 'coral'
+  const attempt = (model: string, useVoice: string, withInstructions: boolean) =>
+    fetch(`${base}/audio/speech`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${settings.openaiApiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        voice: useVoice,
+        input: text,
+        response_format: 'mp3',
+        ...(withInstructions ? { instructions: ttsInstructions(style) } : {}),
+      }),
+    })
+  let res = await attempt('gpt-4o-mini-tts', voice, true)
+  if (!res.ok) {
+    // tts-1 only knows the classic voices — map newer ones to a warm fallback.
+    const classic = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer']
+    const safeVoice = classic.includes(voice) ? voice : 'shimmer'
+    res = await attempt('tts-1', safeVoice, false)
+  }
   if (!res.ok) throw new Error(`TTS ${res.status}`)
   const buf = await res.arrayBuffer()
   return URL.createObjectURL(new Blob([buf], { type: 'audio/mpeg' }))
@@ -84,8 +110,48 @@ async function getAudioUrl(
 ): Promise<string> {
   // Respect the voice the user actually picked.
   if (settings.ttsVoice === 'free') return freeVoiceUrl(text, settings)
-  if (settings.ttsVoice === 'openai') return fetchOpenAiTts(text, settings)
-  return fetchTts(text, settings, style)
+  if (settings.ttsVoice === 'openai') {
+    const key = `openai|${settings.openaiVoice || 'coral'}|${style}|${text}`
+    const cached = cacheGet(key)
+    if (cached) return cached
+    const url = await fetchOpenAiTts(text, settings, style)
+    cacheSet(key, url)
+    return url
+  }
+  return fetchTts(text, settings, style) // Gemini caches internally
+}
+
+/** Generate (and cache) one line's audio ahead of time so playback is instant. */
+export async function prefetchTts(
+  text: string,
+  settings: AiSettings,
+  style: TtsStyle = 'warm',
+): Promise<void> {
+  if (!text || !useNeuralVoice(settings) || settings.ttsVoice === 'free') return
+  try {
+    await getAudioUrl(text, settings, style)
+  } catch {
+    /* ignore — playback will retry / fall back later */
+  }
+}
+
+/** Pre-generate a batch of lines (e.g. a whole story) with limited concurrency,
+ *  so reading along has no per-line wait. */
+export async function prefetchMany(
+  texts: string[],
+  settings: AiSettings,
+  style: TtsStyle = 'warm',
+  concurrency = 3,
+): Promise<void> {
+  if (!useNeuralVoice(settings) || settings.ttsVoice === 'free') return
+  const queue = [...texts]
+  const worker = async () => {
+    while (queue.length) {
+      const t = queue.shift()
+      if (t) await prefetchTts(t, settings, style)
+    }
+  }
+  await Promise.all(Array.from({ length: concurrency }, worker))
 }
 
 function stylePrefix(style: TtsStyle): string {

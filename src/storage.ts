@@ -111,6 +111,19 @@ export const storage = {
       save(KEYS.aiSettings, s)
       localStorage.setItem('ei_tts_polly_v3', '1')
     }
+    // v4: if the user has an AIHubMix key, move them to the expressive
+    // gpt-4o-mini-tts voice (warm + lively, and pre-generated so there's no
+    // delay). This is the best mix of "热情" + "no lag" they asked for.
+    if (localStorage.getItem('ei_tts_expressive_v4') !== '1') {
+      if (s.openaiApiKey && (s.ttsVoice === 'system' || s.ttsVoice === 'free')) {
+        s.ttsVoice = 'openai'
+        if (!s.openaiVoice || ['nova', 'alloy', 'echo', 'onyx', 'fable'].includes(s.openaiVoice)) {
+          s.openaiVoice = 'coral'
+        }
+        save(KEYS.aiSettings, s)
+      }
+      localStorage.setItem('ei_tts_expressive_v4', '1')
+    }
     return s
   },
   saveAiSettings: (settings: AiSettings) => save(KEYS.aiSettings, settings),

@@ -134,7 +134,7 @@ export const DEFAULT_AI_SETTINGS: AiSettings = {
   openaiBaseUrl: 'https://aihubmix.com/v1',
   openaiApiKey: '',
   openaiModel: 'gpt-4o-mini',
-  openaiVoice: 'nova',
+  openaiVoice: 'coral',
   ttsVoice: 'system',
   geminiVoiceName: 'Sulafat',
   freeVoice: 'Salli',

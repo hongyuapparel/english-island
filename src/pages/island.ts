@@ -18,6 +18,7 @@ import { goTo } from '../app'
 import { WATERCOLOR_DEFS, sceneArt, foxArt, hasSceneArt, buildingArt } from '../art/watercolor'
 import { lookupWord, transcribeAudio } from '../ai/chat'
 import { CallSession } from '../voice/recorder'
+import { prefetchMany } from '../voice/neural-tts'
 
 const tts = new VoiceHelper()
 
@@ -256,6 +257,13 @@ export function renderIsland(): HTMLElement {
 
     const bg = `scene-bg-${scene.spotId}`
     const vocabMap = new Map(scene.vocab.map((v) => [v.word.toLowerCase(), v.meaning]))
+
+    // Pre-generate every line's audio the moment the story opens, so reading
+    // along plays each line instantly — expressive neural voice, no per-line wait.
+    const allLineTexts = scene.steps.flatMap((s) =>
+      s.kind === 'choice' ? [s.en, ...s.options.map((o) => o.reply.en)] : [s.en],
+    )
+    void prefetchMany(allLineTexts, storage.getAiSettings(), 'warm')
 
     function speak(en: string) {
       if (isTTSSupported() && storage.getVoiceAutoRead()) tts.speak(en, 'en-US', 0.92)
