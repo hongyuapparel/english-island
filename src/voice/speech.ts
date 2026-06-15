@@ -168,16 +168,7 @@ export class VoiceHelper {
 
 function browserSpeakAwait(clean: string, lang: string, rate: number): Promise<void> {
   return new Promise((resolve) => {
-    const utter = new SpeechSynthesisUtterance(clean.slice(0, 500))
-    utter.lang = lang
-    utter.rate = rate
-    utter.pitch = 1.05
-    utter.volume = 1
-    const v = pickBrowserVoice(lang)
-    if (v) utter.voice = v
-    utter.onend = () => resolve()
-    utter.onerror = () => resolve()
-    speechSynthesis.speak(utter)
+    void speakChunks(splitForSpeech(clean), lang, rate, resolve)
   })
 }
 
@@ -190,41 +181,98 @@ function cleanForSpeech(text: string): string {
     .trim()
 }
 
-/** Pick the most natural-sounding system voice available for a language. */
+// A brighter pitch makes the local voice sound warmer and more cheerful.
+const VOICE_PITCH = 1.16
+
+// iOS Safari returns an empty voice list until they load asynchronously; if we
+// speak before then, nothing is heard. Resolve once voices are available.
+let voicesReadyP: Promise<void> | null = null
+function ensureVoices(): Promise<void> {
+  if (voicesReadyP) return voicesReadyP
+  voicesReadyP = new Promise((resolve) => {
+    if (speechSynthesis.getVoices().length) return resolve()
+    let settled = false
+    const done = () => {
+      if (!settled) {
+        settled = true
+        resolve()
+      }
+    }
+    try {
+      speechSynthesis.addEventListener('voiceschanged', done, { once: true })
+    } catch {
+      /* older browsers */
+    }
+    let n = 0
+    const iv = setInterval(() => {
+      if (speechSynthesis.getVoices().length || n++ > 25) {
+        clearInterval(iv)
+        done()
+      }
+    }, 100)
+  })
+  return voicesReadyP
+}
+
+/** Pick the warmest female English voice available (prefer enhanced en-US). */
 function pickBrowserVoice(lang: string): SpeechSynthesisVoice | undefined {
-  const code = lang.slice(0, 2)
-  const voices = speechSynthesis.getVoices().filter((v) => v.lang.startsWith(code))
-  if (!voices.length) return undefined
-  const nice = /natural|neural|premium|enhanced|google|siri|samantha|karen|daniel|moira|aaron|allison/i
-  return voices.find((v) => nice.test(v.name)) ?? voices.find((v) => v.localService) ?? voices[0]
+  const code = lang.slice(0, 2).toLowerCase()
+  const all = speechSynthesis.getVoices().filter((v) => v.lang && v.lang.toLowerCase().startsWith(code))
+  if (!all.length) return undefined
+  const us = all.filter((v) => /en[-_]us/i.test(v.lang))
+  const pool = us.length ? us : all
+  const female =
+    /samantha|ava|allison|susan|zoe|nicky|joelle|karen|moira|tessa|fiona|serena|female|woman|girl/i
+  const rich = /enhanced|premium|neural|natural|siri/i
+  return (
+    pool.find((v) => female.test(v.name) && rich.test(v.name)) ??
+    pool.find((v) => rich.test(v.name)) ??
+    pool.find((v) => female.test(v.name)) ??
+    pool.find((v) => /google/i.test(v.name)) ??
+    pool.find((v) => v.localService) ??
+    pool[0]
+  )
+}
+
+function splitForSpeech(clean: string): string[] {
+  return (clean.match(/[^.!?]+[.!?]*/g) ?? [clean]).map((c) => c.trim()).filter(Boolean)
+}
+
+/** Speak sentence-by-sentence, chained via onend (reliable on iOS Safari). */
+async function speakChunks(
+  chunks: string[],
+  lang: string,
+  rate: number,
+  onDone?: () => void,
+): Promise<void> {
+  await ensureVoices()
+  // A short gap after a cancel() — iOS Safari silently drops a speak() that
+  // fires too soon after cancelling the previous utterance.
+  await new Promise((r) => setTimeout(r, 60))
+  const voice = pickBrowserVoice(lang)
+  let i = 0
+  const next = () => {
+    if (i >= chunks.length) {
+      onDone?.()
+      return
+    }
+    const u = new SpeechSynthesisUtterance(chunks[i++])
+    u.lang = lang
+    u.rate = rate
+    u.pitch = VOICE_PITCH
+    u.volume = 1
+    if (voice) u.voice = voice
+    u.onend = next
+    u.onerror = next
+    speechSynthesis.speak(u)
+  }
+  next()
 }
 
 function browserSpeak(clean: string, lang: string, rate: number): void {
-  const utter = new SpeechSynthesisUtterance(clean.slice(0, 500))
-  utter.lang = lang
-  utter.rate = rate
-  utter.pitch = 1.05
-  utter.volume = 1
-  const v = pickBrowserVoice(lang)
-  if (v) utter.voice = v
-  speechSynthesis.speak(utter)
+  void speakChunks(splitForSpeech(clean), lang, rate)
 }
 
 function browserSpeakChunks(chunks: string[], lang: string, rate: number): void {
-  // Chain via onend rather than queueing all at once — far more reliable on
-  // iOS Safari, which often stalls when many utterances are queued together.
-  const v = pickBrowserVoice(lang)
-  let i = 0
-  const speakNext = () => {
-    if (i >= chunks.length) return
-    const utter = new SpeechSynthesisUtterance(chunks[i++])
-    utter.lang = lang
-    utter.rate = rate
-    utter.pitch = 1.05
-    utter.volume = 1
-    if (v) utter.voice = v
-    utter.onend = speakNext
-    speechSynthesis.speak(utter)
-  }
-  speakNext()
+  void speakChunks(chunks, lang, rate)
 }

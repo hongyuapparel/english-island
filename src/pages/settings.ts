@@ -99,7 +99,7 @@ export function renderSettings(): HTMLElement {
 
       <div class="provider-section full">
         <h3>🔊 朗读语音</h3>
-        <p class="hint">用你选的语音朗读。Gemini 的 Sulafat 是热情女声（需 Gemini Key）。若某句没声音会自动退回系统语音；想最稳就选「系统语音」。</p>
+        <p class="hint">「系统语音」用手机自带的离线语音，最稳定、即时、不依赖网络（推荐）。想要更热情、更自然的真人级女声，可选 Gemini 的 Sulafat（需 Gemini Key，偶尔会因网络略有延迟）。<br>💡 iPhone 可在「设置 → 辅助功能 → 朗读内容 → 声音 → 英语」里下载一个"增强/Enhanced"女声，本地语音会立刻好听很多。</p>
         <button type="button" class="btn btn-primary" id="sound-test" style="width:100%;margin-bottom:0.6rem;">🔊 点我测试声音</button>
         <div id="sound-test-status" class="status-msg" style="margin-bottom:0.6rem;"></div>
         <div class="field">
@@ -259,8 +259,12 @@ export function renderSettings(): HTMLElement {
           previewVoice.speak(PREVIEW_LINE, 'en-US', 0.9)
         })
     } else {
-      previewVoice.speak(PREVIEW_LINE, 'en-US', 0.9)
-      status.textContent = `▶ 用系统语音播放中…若没听到就检查静音键/音量`
+      status.textContent = '▶ 系统语音播放中…'
+      previewVoice.speakAwait(PREVIEW_LINE, 'en-US', 0.98).then(() => {
+        status.textContent =
+          '✓ 播放完成（系统语音）。没听到就检查：手机侧边静音键、媒体音量；想更好听可在系统设置里下载"增强"英语女声'
+        status.className = 'status-msg success'
+      })
     }
   })
 

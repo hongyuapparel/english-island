@@ -135,7 +135,7 @@ export const DEFAULT_AI_SETTINGS: AiSettings = {
   openaiApiKey: '',
   openaiModel: 'gpt-4o-mini',
   openaiVoice: 'nova',
-  ttsVoice: 'free',
+  ttsVoice: 'system',
   geminiVoiceName: 'Sulafat',
   freeVoice: 'Salli',
 }
