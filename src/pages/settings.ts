@@ -123,7 +123,7 @@ export function renderSettings(): HTMLElement {
 
       <div class="provider-section full">
         <h3>🎨 绘本配图</h3>
-        <p class="hint">开启后，读文章时会用 AIHubMix 按<b>每段内容</b>生成钢笔淡彩插画，做成绘本（需 AIHubMix Key）。图片会缓存，每张只生成一次。注意：生成图片会按你的 AIHubMix 用量计费，且每张约需若干秒。</p>
+        <p class="hint">开启后，读文章时会按<b>每段内容</b>生成钢笔淡彩插画，做成绘本。用的是<b>免费、无需任何 Key</b> 的生图服务（Pollinations），不花钱。图片会缓存，每张只生成一次；第一次每张约需几秒。</p>
         <label class="zh-toggle"><input type="checkbox" id="illustrate" ${storage.getIllustrate() ? 'checked' : ''}/> 开启绘本配图</label>
       </div>
 

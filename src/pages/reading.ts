@@ -50,7 +50,7 @@ export function renderReading(): HTMLElement {
     tts.stopSpeaking()
     storage.markArticleRead(article.id)
     let showZh = false
-    const illoOn = illustrationsEnabled(storage.getAiSettings())
+    const illoOn = illustrationsEnabled()
 
     // Warm up the first few sentences so "正常朗读" starts instantly; the rest
     // are generated just-in-time (look-ahead) as it reads, same expressive voice.
@@ -72,7 +72,7 @@ export function renderReading(): HTMLElement {
         const text = fig.dataset.text ?? ''
         const idx = fig.dataset.idx ?? '0'
         try {
-          const src = await getIllustration(`${article.id}-${idx}`, text, storage.getAiSettings())
+          const src = await getIllustration(`${article.id}-${idx}`, text)
           if (!el.contains(fig)) return
           fig.classList.remove('loading')
           fig.innerHTML = `<img class="illo-img" src="${src}" alt="插画" loading="lazy" />`
