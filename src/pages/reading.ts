@@ -3,8 +3,19 @@ import type { Article } from '../data/articles'
 import { storage } from '../storage'
 import { VoiceHelper, isTTSSupported } from '../voice/speech'
 import { prefetchMany } from '../voice/neural-tts'
-import { getIllustration, illustrationsEnabled } from '../ai/illustrate'
+import { getIllustration, illustrationsEnabled, warmIllustrations } from '../ai/illustrate'
 import { startArticleDiscussion } from './voice'
+
+// Soft watercolor cover palettes, cycled per book so the shelf looks varied.
+const COVER_THEMES = [
+  'linear-gradient(150deg,#ffd9a8,#ff9e7d)',
+  'linear-gradient(150deg,#bfe3ff,#7fb6e6)',
+  'linear-gradient(150deg,#d8f0c0,#8fce72)',
+  'linear-gradient(150deg,#e6d6ff,#b79be6)',
+  'linear-gradient(150deg,#ffd6e6,#ff9ec0)',
+  'linear-gradient(150deg,#fff0bf,#ffce6a)',
+  'linear-gradient(150deg,#c8efe8,#74c7b8)',
+]
 
 const tts = new VoiceHelper()
 
@@ -17,31 +28,38 @@ export function renderReading(): HTMLElement {
     const read = new Set(storage.getReadArticles())
     el.innerHTML = `
       <header class="page-header">
-        <h1>📖 每日阅读</h1>
-        <p class="subtitle">300–800 词的小故事，读完和 Fox 聊聊</p>
+        <h1>📚 绘本书架</h1>
+        <p class="subtitle">挑一本读，每段都有钢笔淡彩插画，读完和 Fox 聊聊</p>
       </header>
-      <div class="article-list">
+      <div class="book-shelf">
         ${ARTICLES.map(
-          (a) => `
-          <button class="article-card" data-id="${a.id}">
-            <span class="article-emoji">${a.emoji}</span>
-            <div class="article-info">
-              <div class="article-tags">
-                <span class="tag">${esc(a.category)}</span>
-                <span class="tag tag-soft">${a.level}</span>
-                <span class="tag tag-soft">${a.words} 词</span>
-                ${read.has(a.id) ? '<span class="tag tag-done">✓ 读过</span>' : ''}
-              </div>
-              <h3>${esc(a.title)} · ${esc(a.titleZh)}</h3>
-              <p>${esc(a.hook)}</p>
+          (a, i) => `
+          <button class="book-card" data-id="${a.id}">
+            <div class="book-cover" style="background:${COVER_THEMES[i % COVER_THEMES.length]}">
+              <span class="book-emoji">${a.emoji}</span>
+              <span class="book-cover-title">${esc(a.title)}</span>
+              ${read.has(a.id) ? '<span class="book-ribbon">✓ 读过</span>' : ''}
+              <span class="book-spine"></span>
+            </div>
+            <div class="book-foot">
+              <div class="book-title-zh">${esc(a.titleZh)}</div>
+              <div class="book-tags"><span class="tag-soft">${esc(a.category)}</span><span class="tag-soft">${a.level}</span><span class="tag-soft">${a.words}词</span></div>
             </div>
           </button>`,
         ).join('')}
       </div>
     `
-    el.querySelectorAll('.article-card').forEach((c) =>
+    el.querySelectorAll('.book-card').forEach((c) =>
       c.addEventListener('click', () =>
         reader(articleById((c as HTMLElement).dataset.id!)!),
+      ),
+    )
+
+    // Start drawing every book's pictures in the background while you browse,
+    // so opening one is (near-)instant — and fully instant on later visits.
+    warmIllustrations(
+      ARTICLES.flatMap((a) =>
+        a.paragraphs.map((p, i) => ({ key: `${a.id}-${i}`, text: p })),
       ),
     )
   }

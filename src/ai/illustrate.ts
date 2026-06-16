@@ -39,20 +39,54 @@ function blobToDataUrl(blob: Blob): Promise<string> {
   })
 }
 
+// Proactively generate + cache every story's pictures in the background, so by
+// the time the reader opens a book its pages are already drawn (and instant on
+// later visits). Runs once per session, gently (low concurrency).
+let warmed = false
+export function warmIllustrations(items: { key: string; text: string }[]): void {
+  if (warmed || !illustrationsEnabled()) return
+  warmed = true
+  let i = 0
+  const worker = async () => {
+    while (i < items.length) {
+      const it = items[i++]
+      try {
+        await getIllustration(it.key, it.text)
+      } catch {
+        /* ignore — the reader will retry on open */
+      }
+    }
+  }
+  void worker()
+  void worker()
+}
+
+const inflight = new Map<string, Promise<string>>()
+
 /** Cached illustration for one passage. `cacheKey` should be stable per slot. */
 export async function getIllustration(cacheKey: string, sceneText: string): Promise<string> {
   const key = `poll|${cacheKey}|${hash(sceneText).toString(36)}`
   const cached = await getCachedImage(key)
   if (cached) return cached
-  const url = pollinationsUrl(sceneText)
+  const existing = inflight.get(key)
+  if (existing) return existing
+  const job = (async () => {
+    const url = pollinationsUrl(sceneText)
+    try {
+      const res = await fetch(url)
+      if (!res.ok) throw new Error(`image ${res.status}`)
+      const dataUrl = await blobToDataUrl(await res.blob())
+      await putCachedImage(key, dataUrl)
+      return dataUrl
+    } catch {
+      // Couldn't cache (e.g. CORS) — show it directly from the URL anyway.
+      return url
+    }
+  })()
+  inflight.set(key, job)
   try {
-    const res = await fetch(url)
-    if (!res.ok) throw new Error(`image ${res.status}`)
-    const dataUrl = await blobToDataUrl(await res.blob())
-    await putCachedImage(key, dataUrl)
-    return dataUrl
-  } catch {
-    // Couldn't cache (e.g. CORS) — show it directly from the URL anyway.
-    return url
+    return await job
+  } finally {
+    inflight.delete(key)
   }
 }
