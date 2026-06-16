@@ -161,8 +161,9 @@ export class VoiceHelper {
   ): Promise<void> {
     for (let i = 0; i < chunks.length; i++) {
       if (token !== this.seqToken) return // superseded by a newer read / stop
-      // generate the next sentence while this one is playing → no gaps
+      // generate the next couple of sentences while this one plays → no gaps
       if (i + 1 < chunks.length) void prefetchTts(chunks[i + 1], settings, style)
+      if (i + 2 < chunks.length) void prefetchTts(chunks[i + 2], settings, style)
       try {
         await neuralSpeak(chunks[i], settings, style)
       } catch {

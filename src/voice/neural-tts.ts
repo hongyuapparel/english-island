@@ -10,6 +10,8 @@ const TTS_MODEL = 'gemini-2.5-flash-preview-tts'
 const DEFAULT_RATE = 24000
 const DEFAULT_VOICE = 'Sulafat'
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
 /** Warm fox-companion voices, with the tone Google documents for each. */
 export const GEMINI_VOICES: { name: string; zh: string }[] = [
   { name: 'Sulafat', zh: '温暖' },
@@ -91,12 +93,22 @@ async function fetchOpenAiTts(
         ...(withInstructions ? { instructions: ttsInstructions(style) } : {}),
       }),
     })
+  // Retry transient failures (esp. 429 rate-limit) so a sentence doesn't fall
+  // back to the flat system voice mid-passage — keeping the whole read on one voice.
   let res = await attempt('gpt-4o-mini-tts', voice, true)
+  for (let i = 0; i < 3 && !res.ok && res.status !== 400 && res.status !== 404; i++) {
+    await sleep(350 * (i + 1))
+    res = await attempt('gpt-4o-mini-tts', voice, true)
+  }
   if (!res.ok) {
     // tts-1 only knows the classic voices — map newer ones to a warm fallback.
     const classic = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer']
     const safeVoice = classic.includes(voice) ? voice : 'shimmer'
     res = await attempt('tts-1', safeVoice, false)
+    for (let i = 0; i < 2 && !res.ok; i++) {
+      await sleep(350 * (i + 1))
+      res = await attempt('tts-1', safeVoice, false)
+    }
   }
   if (!res.ok) throw new Error(`TTS ${res.status}`)
   const buf = await res.arrayBuffer()
@@ -141,7 +153,7 @@ export async function prefetchMany(
   texts: string[],
   settings: AiSettings,
   style: TtsStyle = 'warm',
-  concurrency = 3,
+  concurrency = 2,
 ): Promise<void> {
   if (!useNeuralVoice(settings) || settings.ttsVoice === 'free') return
   const queue = [...texts]
@@ -289,19 +301,27 @@ async function fetchTts(
   if (cached) return cached
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${TTS_MODEL}:generateContent?key=${settings.geminiApiKey}`
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: stylePrefix(style) + text }] }],
-      generationConfig: {
-        responseModalities: ['AUDIO'],
-        speechConfig: {
-          voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } },
+  const doFetch = () =>
+    fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: stylePrefix(style) + text }] }],
+        generationConfig: {
+          responseModalities: ['AUDIO'],
+          speechConfig: {
+            voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } },
+          },
         },
-      },
-    }),
-  })
+      }),
+    })
+  // Retry transient failures (Gemini free tier rate-limits often) so a sentence
+  // doesn't drop to the flat system voice mid-passage.
+  let res = await doFetch()
+  for (let i = 0; i < 3 && !res.ok && res.status !== 400; i++) {
+    await sleep(400 * (i + 1))
+    res = await doFetch()
+  }
   if (!res.ok) throw new Error(`TTS ${res.status}`)
   const data = (await res.json()) as {
     candidates?: Array<{
