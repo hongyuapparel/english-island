@@ -73,6 +73,7 @@ export function renderReading(): HTMLElement {
     tts.stopSpeaking()
     storage.markArticleRead(article.id)
     let showZh = false
+    let coReadIdx = -1  // -1 = normal view; >=0 = co-read slideshow at this paragraph index
     const illoOn = illustrationsEnabled()
 
     // Warm up the first few sentences so "正常朗读" starts instantly; the rest
@@ -169,9 +170,14 @@ export function renderReading(): HTMLElement {
             </div>
           </div>
 
-          <button class="btn btn-primary btn-block discuss-btn" id="discuss">
-            💬 和 Fox 聊聊这篇
-          </button>
+          <div class="reader-action-row">
+            <button class="btn btn-secondary btn-block" id="co-read-start">
+              👨‍👩‍👧 亲子共读
+            </button>
+            <button class="btn btn-primary btn-block discuss-btn" id="discuss">
+              💬 和 Fox 聊聊这篇
+            </button>
+          </div>
         </article>
       `
 
@@ -209,8 +215,117 @@ export function renderReading(): HTMLElement {
         tts.stopSpeaking()
         startArticleDiscussion(article.id)
       })
+      el.querySelector('#co-read-start')?.addEventListener('click', () => {
+        tts.stopSpeaking()
+        coReadIdx = 0
+        paintCoRead()
+      })
 
       loadIllustrations()
+    }
+
+    function paintCoRead() {
+      const total = article.paragraphs.length
+      const para = article.paragraphs[coReadIdx]
+      const isA = coReadIdx % 2 === 0
+      const roleLabel = isA ? '📖 大人读' : '🧒 孩子读'
+      const roleClass = isA ? 'co-role-a' : 'co-role-b'
+      const progress = Math.round(((coReadIdx + 1) / total) * 100)
+      const isFirst = coReadIdx === 0
+      const isLast = coReadIdx === total - 1
+      const zhLine =
+        showZh && article.translation[coReadIdx]
+          ? `<p class="reader-zh co-zh">${esc(article.translation[coReadIdx])}</p>`
+          : ''
+
+      el.innerHTML = `
+        <button class="btn btn-ghost back-btn" id="co-back">← 返回文章</button>
+        <div class="reader" style="padding-top:0.25rem">
+          <div class="co-read-header">
+            <h2 class="co-read-title">${esc(article.emoji)} ${esc(article.title)}</h2>
+            <div class="co-progress-row">
+              <div class="co-progress-bar"><div class="co-progress-fill" style="width:${progress}%"></div></div>
+              <span class="co-progress-text">${coReadIdx + 1} / ${total}</span>
+            </div>
+          </div>
+
+          <div class="co-slide ${roleClass}">
+            <span class="co-badge">${roleLabel}</span>
+            <div class="co-text">
+              <p class="reader-para">${splitSentences(para)
+                .map((s) => `<span class="sentence co-sentence" data-say="${escAttr(s)}">${esc(s)} </span>`)
+                .join('')}</p>
+              ${zhLine}
+            </div>
+            <button class="btn btn-ghost co-play-btn" id="co-play">🔊 朗读这段</button>
+          </div>
+
+          <div class="co-nav">
+            <button class="btn btn-secondary" id="co-prev" ${isFirst ? 'disabled' : ''}>← 上一段</button>
+            ${isLast
+              ? `<button class="btn btn-primary" id="co-done">🎉 读完啦！</button>`
+              : `<button class="btn btn-primary" id="co-next">下一段 →</button>`
+            }
+          </div>
+
+          <label class="co-zh-toggle">
+            <input type="checkbox" id="co-zh" ${showZh ? 'checked' : ''}/> 显示中文
+          </label>
+        </div>
+      `
+
+      el.querySelector('#co-back')?.addEventListener('click', () => {
+        tts.stopSpeaking()
+        coReadIdx = -1
+        paint()
+      })
+      el.querySelector('#co-play')?.addEventListener('click', () =>
+        tts.speakLong(para, 0.85),
+      )
+      el.querySelectorAll('.co-sentence').forEach((s) =>
+        s.addEventListener('click', () =>
+          tts.speak((s as HTMLElement).dataset.say ?? '', 'en-US', 0.85),
+        ),
+      )
+      el.querySelector('#co-prev')?.addEventListener('click', () => {
+        tts.stopSpeaking()
+        coReadIdx--
+        paintCoRead()
+      })
+      el.querySelector('#co-next')?.addEventListener('click', () => {
+        tts.stopSpeaking()
+        coReadIdx++
+        paintCoRead()
+      })
+      el.querySelector('#co-done')?.addEventListener('click', () => {
+        tts.stopSpeaking()
+        showCelebration()
+      })
+      el.querySelector('#co-zh')?.addEventListener('change', (e) => {
+        showZh = (e.target as HTMLInputElement).checked
+        paintCoRead()
+      })
+    }
+
+    function showCelebration() {
+      el.innerHTML = `
+        <div class="co-celebration">
+          <div class="co-celeb-emoji">🎉</div>
+          <h2>太棒了！</h2>
+          <p>你们一起读完了<br><b>《${esc(article.title)}》</b></p>
+          <div class="co-celeb-stars">⭐ ⭐ ⭐</div>
+          <button class="btn btn-primary btn-block" id="co-finish" style="max-width:280px">回到文章</button>
+          <button class="btn btn-ghost btn-block" id="co-discuss" style="max-width:280px">💬 和 Fox 聊聊这篇</button>
+        </div>
+      `
+      el.querySelector('#co-finish')?.addEventListener('click', () => {
+        coReadIdx = -1
+        paint()
+      })
+      el.querySelector('#co-discuss')?.addEventListener('click', () => {
+        tts.stopSpeaking()
+        startArticleDiscussion(article.id)
+      })
     }
 
     paint()

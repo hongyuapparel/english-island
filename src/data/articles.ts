@@ -326,6 +326,47 @@ export const ARTICLES: Article[] = [
     artNote:
       'Recurring character: the same young girl Alice with long blonde hair, a light blue dress and a white pinafore apron; and a white rabbit in a waistcoat holding a pocket watch. Keep Alice and the rabbit looking identical on every page.',
   },
+  {
+    id: 'tale-bear-counts-stars',
+    title: 'Little Bear Counts Stars',
+    titleZh: '小熊数星星',
+    category: '童话·亲子',
+    emoji: '🐻',
+    level: 'A1',
+    words: 220,
+    hook: '小熊问妈妈：天上到底有多少颗星星？',
+    paragraphs: [
+      `One night, Little Bear could not sleep. He crawled out of bed and sat by the window. The sky was full of tiny, sparkling lights. "Mama," he called softly, "how many stars are up there?"`,
+      `Mama Bear walked in slowly, still wearing her big brown slippers. She sat beside Little Bear and looked up at the dark sky. "Well," she said with a smile, "let's count them together and find out."`,
+      `"One, two, three…" Little Bear began, pointing at each star with his little paw. "Four, five, six…" But then he lost track and had to start again. "Oh no! I lost count again!"`,
+      `Mama Bear laughed softly. "That's all right," she said. "Some things are too wonderful to count. We just have to enjoy them." She pulled him close with her big warm arm.`,
+      `"But Mama," said Little Bear, "if we can't count them, how do we know they're all there?" Mama smiled and kissed his soft round ear.`,
+      `"Because," she said quietly, "every single night — without fail — they come back. And so do I."`,
+      `Little Bear thought about that for a moment. Then he yawned a very big yawn, and his eyes began to close. "Mama," he whispered, "I think I counted enough for tonight." And with the stars still shining above, he fell fast asleep.`,
+    ],
+    translation: [
+      `一天夜里，小熊睡不着。他爬下床，坐在窗边。天空里满是小小的、闪闪发光的光点。"妈妈，"他轻轻地喊道，"天上到底有多少颗星星？"`,
+      `熊妈妈慢慢走了进来，还穿着她那双大棕色拖鞋。她坐在小熊身边，望向深邃的夜空。"嗯，"她微笑着说，"我们一起数数，看看有多少颗。"`,
+      `"一、二、三……"小熊开始数，用小爪子指着每一颗星星。"四、五、六……"可是数着数着就乱了，只好重新开始。"哎呀！我又数错了！"`,
+      `熊妈妈轻轻笑了。"没关系，"她说，"有些东西美好得数不清。我们只要好好欣赏就够了。"她用温暖的大手臂把他搂了过来。`,
+      `"但是妈妈，"小熊说，"如果我们数不清，怎么知道它们都在呢？"熊妈妈微笑着，亲了亲他柔软的圆耳朵。`,
+      `"因为，"她轻声说，"每个夜晚——一次不落——它们都会回来。就像我一样。"`,
+      `小熊想了想。然后他打了一个大大的哈欠，眼睛开始慢慢合上。"妈妈，"他轻声说，"我觉得今晚我数够了。"就这样，在满天繁星的陪伴下，他沉沉地睡着了。`,
+    ],
+    vocab: [
+      { word: 'sparkling', meaning: '闪闪发光的' },
+      { word: 'slippers', meaning: '拖鞋' },
+      { word: 'paw', meaning: '（动物的）爪子' },
+      { word: 'whispered', meaning: 'whisper 的过去式，低声说' },
+    ],
+    discussion: [
+      `What question do you like to ask at bedtime that no one can really answer?`,
+      `Mama Bear says some things are "too wonderful to count." Do you have something like that?`,
+      `Why do you think Little Bear finally felt sleepy?`,
+    ],
+    artNote:
+      'Recurring characters: a small round brown bear cub with big ears and gentle eyes, and a large cozy mama bear in brown slippers. A warm bedroom with a starry night sky through the window. Keep both bears and the cozy bedroom setting identical on every page.',
+  },
 ]
 
 export function articleById(id: string): Article | undefined {

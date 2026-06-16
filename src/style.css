@@ -1716,6 +1716,55 @@ input:focus, select:focus, textarea:focus {
 .vocab-add.added { background: var(--color-success); color: #fff; border-color: var(--color-success); }
 .discuss-btn { margin-top: 0.5rem; }
 .btn-block { display: block; width: 100%; }
+.reader-action-row { display: flex; flex-direction: column; gap: 0.55rem; margin-top: 0.5rem; }
+
+/* --- Co-reading (parent-child) mode --- */
+.co-read-header { margin-bottom: 1rem; }
+.co-read-title { font-family: var(--font-display); font-size: 1.2rem; margin-bottom: 0.6rem; }
+.co-progress-row { display: flex; align-items: center; gap: 0.65rem; }
+.co-progress-bar { flex: 1; height: 7px; background: var(--color-border); border-radius: 4px; overflow: hidden; }
+.co-progress-fill { height: 100%; background: linear-gradient(90deg, var(--color-primary), var(--color-primary-light)); border-radius: 4px; transition: width 0.4s ease; }
+.co-progress-text { font-size: 0.78rem; color: var(--color-text-muted); font-weight: 700; white-space: nowrap; }
+
+.co-slide {
+  border-radius: 20px; padding: 1.3rem 1.2rem;
+  display: flex; flex-direction: column; gap: 0.85rem;
+  box-shadow: 0 6px 22px rgba(90,74,54,0.13); border: 1.5px solid transparent;
+  transition: background 0.3s, border-color 0.3s; margin-bottom: 0.2rem;
+}
+.co-role-a { background: linear-gradient(145deg, #fff8f0, #ffecd8); border-color: #ffc987; }
+.co-role-b { background: linear-gradient(145deg, #eef6ff, #d6eeff); border-color: #8ec8f8; }
+
+.co-badge {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  padding: 0.26rem 0.9rem; border-radius: 20px;
+  font-size: 0.84rem; font-weight: 700; align-self: flex-start;
+}
+.co-role-a .co-badge { background: var(--color-accent); color: #fff; }
+.co-role-b .co-badge { background: #3fa8e8; color: #fff; }
+
+.co-text .reader-para { font-size: 1.12rem; line-height: 1.85; margin: 0; }
+.co-zh { font-size: 0.87rem; color: var(--color-text-muted); line-height: 1.6; margin-top: 0.45rem; padding-left: 0.5rem; border-left: 2px solid var(--color-border); }
+.co-play-btn { align-self: flex-start; font-size: 0.8rem; color: var(--color-text-muted); padding: 0.15rem 0.4rem; }
+
+.co-nav { display: flex; gap: 0.75rem; justify-content: center; margin-top: 0.4rem; }
+.co-nav .btn { min-width: 118px; }
+
+.co-zh-toggle {
+  display: flex; align-items: center; justify-content: center; gap: 0.3rem;
+  font-size: 0.83rem; color: var(--color-text-muted); cursor: pointer; margin-top: 0.3rem;
+}
+
+/* Celebration screen */
+.co-celebration {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 1rem; padding: 3rem 1.5rem; text-align: center; min-height: 65vh;
+}
+.co-celeb-emoji { font-size: 4.5rem; animation: co-bounce 0.7s ease-in-out infinite alternate; }
+@keyframes co-bounce { from { transform: scale(1) rotate(-4deg); } to { transform: scale(1.18) rotate(6deg); } }
+.co-celebration h2 { font-family: var(--font-display); font-size: 2.1rem; color: var(--color-primary); }
+.co-celebration p { font-size: 1.05rem; color: var(--color-text-muted); line-height: 1.65; }
+.co-celeb-stars { font-size: 1.9rem; letter-spacing: 0.25rem; margin: 0.25rem 0; }
 
 /* --- Discuss banner in chat --- */
 .discuss-banner {
