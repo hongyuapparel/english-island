@@ -1673,50 +1673,31 @@ input:focus, select:focus, textarea:focus {
 .reader-body { font-family: var(--font-body); font-size: 1.12rem; line-height: 1.9; }
 .reader-para { margin-bottom: 0.4rem; }
 
-/* picture-book pages: illustration fills the page, text sits on top */
-.pb-book.has-illo { display: flex; flex-direction: column; gap: 1.1rem; }
-.pb-page {
-  position: relative; display: flex; flex-direction: column; justify-content: flex-end;
-  border-radius: 20px; overflow: hidden; box-shadow: 0 10px 26px rgba(90,74,54,0.18);
+/* picture-book pages: illustration on top, text below — clean and uncluttered */
+.pb-book.has-illo { display: flex; flex-direction: column; gap: 1.4rem; }
+.pb-book.has-illo .pb-page {
+  border-radius: 18px; overflow: hidden; background: var(--color-surface);
+  box-shadow: 0 8px 22px rgba(90,74,54,0.16); border: 1px solid var(--color-border);
+}
+.pb-img-wrap {
+  position: relative; aspect-ratio: 4 / 3; overflow: hidden;
   background: linear-gradient(135deg, #fbf5ea, #efe6d4);
 }
-.pb-book.has-illo .pb-page { min-height: 74vw; }
-/* while the picture loads, show a gentle "drawing…" shimmer */
-.pb-book.has-illo .pb-page::before {
+/* gentle "drawing…" placeholder while the picture loads */
+.pb-img-wrap::before {
   content: '🎨 绘本插画生成中…'; position: absolute; inset: 0; z-index: 1;
-  display: grid; place-items: center; color: #a9967c; font-size: 0.9rem;
-  background: linear-gradient(135deg, #fbf5ea, #efe6d4);
-  transition: opacity 0.5s; opacity: 1;
+  display: grid; place-items: center; color: #a9967c; font-size: 0.88rem;
 }
-.pb-book.has-illo .pb-page.ready::before,
-.pb-book.has-illo .pb-page.failed::before { opacity: 0; }
-/* generation failed: keep it a clean paper page with dark text */
-.pb-book.has-illo .pb-page.failed { min-height: 0; }
 .pb-img {
   position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
-  z-index: 1; opacity: 0; transition: opacity 0.6s ease;
+  z-index: 2; opacity: 0; transition: opacity 0.6s ease;
 }
 .pb-page.ready .pb-img { opacity: 1; }
-/* soft scrim so text stays readable over any illustration */
-.pb-scrim {
-  position: absolute; left: 0; right: 0; bottom: 0; height: 62%; z-index: 2;
-  background: linear-gradient(to top, rgba(28,22,16,0.5), rgba(28,22,16,0.12) 70%, transparent);
-  opacity: 0; transition: opacity 0.6s ease; pointer-events: none;
-}
-.pb-page.ready .pb-scrim { opacity: 1; }
-.pb-text { position: relative; z-index: 3; padding: 1rem 1.1rem 1.05rem; }
-/* when illustrated, the text reads as white storybook lettering on the picture */
-.pb-book.has-illo .pb-page.ready .pb-text .reader-para {
-  color: #fff; text-shadow: 0 1px 6px rgba(0,0,0,0.55);
-}
-.pb-book.has-illo .pb-page.ready .pb-text .reader-zh {
-  color: rgba(255,255,255,0.92); text-shadow: 0 1px 5px rgba(0,0,0,0.5);
-}
-.pb-book.has-illo .pb-page.ready .sentence:active { background: rgba(255,255,255,0.25); border-radius: 4px; }
-/* no-illustration fallback: simple clean pages */
-.pb-book:not(.has-illo) .pb-page { box-shadow: none; background: none; border-radius: 0; }
-.pb-book:not(.has-illo) .pb-scrim { display: none; }
-.pb-book:not(.has-illo) .pb-text { padding: 0; }
+/* if a page's picture can't be made, collapse the image area to a clean text page */
+.pb-page.failed .pb-img-wrap { display: none; }
+.pb-text { padding: 0.95rem 1.1rem 1.05rem; }
+.pb-text .reader-para { margin: 0; }
+.pb-text .reader-zh { margin-top: 0.5rem; }
 .sentence { cursor: pointer; border-radius: 4px; transition: background 0.15s; padding: 0 1px; }
 .sentence:hover { background: #fff0db; }
 .reader-zh { color: var(--color-text-muted); font-size: 0.92rem; line-height: 1.7; margin-bottom: 1.1rem; padding-left: 0.6rem; border-left: 2px solid var(--color-border); }

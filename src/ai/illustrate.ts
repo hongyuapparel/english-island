@@ -9,7 +9,7 @@ const STYLE_PROMPT =
   "children's storybook illustration in delicate pen-and-watercolor style, " +
   'loose hand-drawn ink outlines with soft muted watercolor washes, warm gentle ' +
   'fairytale palette, lots of soft white paper space, cosy and whimsical, ' +
-  'no text, no words, no letters, no captions. Scene: '
+  'no text, no words, no letters, no captions. '
 
 function hash(s: string): number {
   let h = 5381
@@ -21,12 +21,17 @@ export function illustrationsEnabled(): boolean {
   return storage.getIllustrate()
 }
 
-function pollinationsUrl(sceneText: string): string {
-  const prompt = STYLE_PROMPT + sceneText.replace(/\s+/g, ' ').trim().slice(0, 480)
-  const seed = hash(prompt) % 100000 // stable seed → same prompt returns same image
+function buildPrompt(sceneText: string, artNote?: string): string {
+  const note = artNote ? artNote.trim() + ' ' : ''
+  return STYLE_PROMPT + note + 'This page shows: ' + sceneText.replace(/\s+/g, ' ').trim().slice(0, 420)
+}
+
+function pollinationsUrl(prompt: string, bookKey: string): string {
+  // Same book → same base seed, so the style/character stay coherent across pages.
+  const seed = hash(bookKey) % 100000
   return (
     `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}` +
-    `?width=768&height=768&nologo=true&model=flux&seed=${seed}`
+    `?width=768&height=576&nologo=true&model=flux&seed=${seed}`
   )
 }
 
@@ -42,8 +47,15 @@ function blobToDataUrl(blob: Blob): Promise<string> {
 // Proactively generate + cache every story's pictures in the background, so by
 // the time the reader opens a book its pages are already drawn (and instant on
 // later visits). Runs once per session, gently (low concurrency).
+export interface IlloItem {
+  key: string
+  text: string
+  artNote?: string
+  bookKey?: string
+}
+
 let warmed = false
-export function warmIllustrations(items: { key: string; text: string }[]): void {
+export function warmIllustrations(items: IlloItem[]): void {
   if (warmed || !illustrationsEnabled()) return
   warmed = true
   let i = 0
@@ -51,7 +63,7 @@ export function warmIllustrations(items: { key: string; text: string }[]): void 
     while (i < items.length) {
       const it = items[i++]
       try {
-        await getIllustration(it.key, it.text)
+        await getIllustration(it.key, it.text, it.artNote, it.bookKey)
       } catch {
         /* ignore — the reader will retry on open */
       }
@@ -64,14 +76,20 @@ export function warmIllustrations(items: { key: string; text: string }[]): void 
 const inflight = new Map<string, Promise<string>>()
 
 /** Cached illustration for one passage. `cacheKey` should be stable per slot. */
-export async function getIllustration(cacheKey: string, sceneText: string): Promise<string> {
-  const key = `poll|${cacheKey}|${hash(sceneText).toString(36)}`
+export async function getIllustration(
+  cacheKey: string,
+  sceneText: string,
+  artNote?: string,
+  bookKey?: string,
+): Promise<string> {
+  const prompt = buildPrompt(sceneText, artNote)
+  const key = `poll2|${cacheKey}|${hash(prompt).toString(36)}`
   const cached = await getCachedImage(key)
   if (cached) return cached
   const existing = inflight.get(key)
   if (existing) return existing
   const job = (async () => {
-    const url = pollinationsUrl(sceneText)
+    const url = pollinationsUrl(prompt, bookKey || cacheKey)
     try {
       const res = await fetch(url)
       if (!res.ok) throw new Error(`image ${res.status}`)

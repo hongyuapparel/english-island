@@ -59,7 +59,12 @@ export function renderReading(): HTMLElement {
     // so opening one is (near-)instant — and fully instant on later visits.
     warmIllustrations(
       ARTICLES.flatMap((a) =>
-        a.paragraphs.map((p, i) => ({ key: `${a.id}-${i}`, text: p })),
+        a.paragraphs.map((p, i) => ({
+          key: `${a.id}-${i}`,
+          text: p,
+          artNote: a.artNote,
+          bookKey: a.id,
+        })),
       ),
     )
   }
@@ -87,7 +92,7 @@ export function renderReading(): HTMLElement {
         const idx = img.dataset.idx ?? '0'
         const text = article.paragraphs[Number(idx)] ?? ''
         try {
-          const src = await getIllustration(`${article.id}-${idx}`, text)
+          const src = await getIllustration(`${article.id}-${idx}`, text, article.artNote, article.id)
           if (el.contains(img)) {
             const page = img.closest('.pb-page')
             img.onload = () => page?.classList.add('ready')
@@ -133,8 +138,7 @@ export function renderReading(): HTMLElement {
               .map(
                 (p, i) => `
               <section class="pb-page" data-idx="${i}">
-                ${illoOn ? `<img class="pb-img" data-idx="${i}" alt="" />` : ''}
-                <div class="pb-scrim"></div>
+                ${illoOn ? `<div class="pb-img-wrap"><img class="pb-img" data-idx="${i}" alt="" /></div>` : ''}
                 <div class="pb-text">
                   <p class="reader-para">${splitSentences(p)
                     .map(

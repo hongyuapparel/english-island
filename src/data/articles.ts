@@ -16,6 +16,9 @@ export interface Article {
   vocab: { word: string; meaning: string }[]
   /** conversation openers Fox uses to discuss the piece */
   discussion: string[]
+  /** fixed description of recurring characters/setting/style, added to every
+   *  illustration prompt so a book's pictures stay visually consistent. */
+  artNote?: string
 }
 
 export const ARTICLES: Article[] = [
@@ -228,6 +231,8 @@ export const ARTICLES: Article[] = [
       `The fox stopped chasing and started enjoying. Is that wisdom, or giving up? What do you think?`,
       `Which line of the story did you like most?`,
     ],
+    artNote:
+      'Recurring character: the same small red fox with a white-tipped tail and gentle eyes, in a calm moonlit pine forest with one bright silver star. Keep the fox and setting identical on every page.',
   },
   {
     id: 'tale-honest-woodcutter',
@@ -267,6 +272,8 @@ export const ARTICLES: Article[] = [
       `The spirit said honesty is "rarer than gold." Do you agree?`,
       `What do you think is your own "real treasure"?`,
     ],
+    artNote:
+      'Recurring characters: the same kind woodcutter — a bearded man in simple brown clothes — and a gentle glowing river spirit, a woman made of softly shining water. A green forest beside a deep river. Keep both characters and the setting identical on every page.',
   },
   {
     id: 'classic-alice-rabbit-hole',
@@ -316,6 +323,8 @@ export const ARTICLES: Article[] = [
       `Alice drank from a bottle just because it said "DRINK ME." Was that brave or careless?`,
       `Would you like to read the next chapter of Alice's adventures together?`,
     ],
+    artNote:
+      'Recurring character: the same young girl Alice with long blonde hair, a light blue dress and a white pinafore apron; and a white rabbit in a waistcoat holding a pocket watch. Keep Alice and the rabbit looking identical on every page.',
   },
 ]
 
