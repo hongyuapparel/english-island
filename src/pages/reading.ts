@@ -2,6 +2,7 @@ import { ARTICLES, articleById, splitSentences } from '../data/articles'
 import type { Article } from '../data/articles'
 import { storage } from '../storage'
 import { VoiceHelper, isTTSSupported } from '../voice/speech'
+import { prefetchMany } from '../voice/neural-tts'
 import { startArticleDiscussion } from './voice'
 
 const tts = new VoiceHelper()
@@ -48,6 +49,11 @@ export function renderReading(): HTMLElement {
     tts.stopSpeaking()
     storage.markArticleRead(article.id)
     let showZh = false
+
+    // Warm up the first few sentences so "正常朗读" starts instantly; the rest
+    // are generated just-in-time (look-ahead) as it reads, same expressive voice.
+    const sentences = article.paragraphs.flatMap((p) => splitSentences(p))
+    void prefetchMany(sentences.slice(0, 6), storage.getAiSettings(), 'warm')
 
     function paint() {
       el.innerHTML = `

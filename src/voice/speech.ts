@@ -1,8 +1,8 @@
 import { storage } from '../storage'
 import {
   neuralSpeak,
-  neuralSpeakSequence,
   neuralStop,
+  prefetchTts,
   useNeuralVoice,
   type TtsStyle,
 } from './neural-tts'
@@ -48,6 +48,7 @@ export function isTTSSupported(): boolean {
 export class VoiceHelper {
   private recognition: SpeechRecognitionInstance | null = null
   private listening = false
+  private seqToken = 0
 
   get isListening() {
     return this.listening
@@ -129,7 +130,9 @@ export class VoiceHelper {
     browserSpeak(clean, lang, rate)
   }
 
-  /** Read a long passage; neural reads it expressively sentence by sentence. */
+  /** Read a long passage; neural reads it expressively sentence by sentence.
+   *  Each sentence falls back to the system voice on its own if it fails — so a
+   *  single hiccup never dumps the whole passage to the flat system voice. */
   speakLong(text: string, rate = 0.95, lang = 'en-US'): void {
     this.stopSpeaking()
     const clean = text.replace(/\s+/g, ' ').trim()
@@ -140,11 +143,33 @@ export class VoiceHelper {
 
     const settings = storage.getAiSettings()
     if (lang.startsWith('en') && useNeuralVoice(settings)) {
-      const style: TtsStyle = rate < 0.85 ? 'slow' : 'normal'
-      neuralSpeakSequence(chunks, settings, style).catch(() => browserSpeakChunks(chunks, lang, rate))
+      const style: TtsStyle = rate < 0.85 ? 'slow' : 'warm'
+      const token = ++this.seqToken
+      void this.playSequence(chunks, settings, style, lang, rate, token)
       return
     }
     browserSpeakChunks(chunks, lang, rate)
+  }
+
+  private async playSequence(
+    chunks: string[],
+    settings: ReturnType<typeof storage.getAiSettings>,
+    style: TtsStyle,
+    lang: string,
+    rate: number,
+    token: number,
+  ): Promise<void> {
+    for (let i = 0; i < chunks.length; i++) {
+      if (token !== this.seqToken) return // superseded by a newer read / stop
+      // generate the next sentence while this one is playing → no gaps
+      if (i + 1 < chunks.length) void prefetchTts(chunks[i + 1], settings, style)
+      try {
+        await neuralSpeak(chunks[i], settings, style)
+      } catch {
+        if (token !== this.seqToken) return
+        await browserSpeakAwait(chunks[i], lang, rate) // this sentence only
+      }
+    }
   }
 
   /** Like speak(), but resolves when the speech finishes (for hands-free mode). */
@@ -161,6 +186,7 @@ export class VoiceHelper {
   }
 
   stopSpeaking() {
+    this.seqToken++ // invalidate any running long-read sequence
     speechSynthesis.cancel()
     neuralStop()
   }
