@@ -42,6 +42,8 @@ export interface AiSettings {
   geminiVoiceName: string
   /** Free (Polly) voice name, e.g. 'Joanna'. */
   freeVoice: string
+  /** Image model for storybook illustrations (OpenAI-compatible), e.g. 'dall-e-3'. */
+  imageModel?: string
 }
 
 export interface ChatMessage {

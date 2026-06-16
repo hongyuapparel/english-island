@@ -121,6 +121,12 @@ export function renderSettings(): HTMLElement {
         </div>
       </div>
 
+      <div class="provider-section full">
+        <h3>🎨 绘本配图</h3>
+        <p class="hint">开启后，读文章时会用 AIHubMix 按<b>每段内容</b>生成钢笔淡彩插画，做成绘本（需 AIHubMix Key）。图片会缓存，每张只生成一次。注意：生成图片会按你的 AIHubMix 用量计费，且每张约需若干秒。</p>
+        <label class="zh-toggle"><input type="checkbox" id="illustrate" ${storage.getIllustrate() ? 'checked' : ''}/> 开启绘本配图</label>
+      </div>
+
       <div class="form-actions full">
         <button type="submit" class="btn btn-primary">保存设置</button>
         <span id="save-status" class="save-status"></span>
@@ -268,10 +274,15 @@ export function renderSettings(): HTMLElement {
     }
   })
 
+  el.querySelector('#illustrate')?.addEventListener('change', (e) => {
+    storage.setIllustrate((e.target as HTMLInputElement).checked)
+  })
+
   const form = el.querySelector('#settings-form') as HTMLFormElement
   form.addEventListener('submit', (e) => {
     e.preventDefault()
     storage.saveAiSettings(readForm())
+    storage.setIllustrate((el.querySelector('#illustrate') as HTMLInputElement).checked)
     const status = el.querySelector('#save-status')!
     status.textContent = '✓ 已保存'
     setTimeout(() => (status.textContent = ''), 2000)

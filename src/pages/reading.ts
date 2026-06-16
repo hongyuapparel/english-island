@@ -3,6 +3,7 @@ import type { Article } from '../data/articles'
 import { storage } from '../storage'
 import { VoiceHelper, isTTSSupported } from '../voice/speech'
 import { prefetchMany } from '../voice/neural-tts'
+import { getIllustration, illustrationsEnabled } from '../ai/illustrate'
 import { startArticleDiscussion } from './voice'
 
 const tts = new VoiceHelper()
@@ -49,11 +50,56 @@ export function renderReading(): HTMLElement {
     tts.stopSpeaking()
     storage.markArticleRead(article.id)
     let showZh = false
+    const illoOn = illustrationsEnabled(storage.getAiSettings())
 
     // Warm up the first few sentences so "正常朗读" starts instantly; the rest
     // are generated just-in-time (look-ahead) as it reads, same expressive voice.
     const sentences = article.paragraphs.flatMap((p) => splitSentences(p))
     void prefetchMany(sentences.slice(0, 6), storage.getAiSettings(), 'warm')
+
+    // Lazily draw each paragraph's illustration (one at a time) as it nears view.
+    function loadIllustrations() {
+      if (!illoOn) return
+      const figs = Array.from(el.querySelectorAll('.reader-illo.loading')) as HTMLElement[]
+      if (!figs.length) return
+      let busy = false
+      const queue: HTMLElement[] = []
+      const runNext = async () => {
+        if (busy) return
+        const fig = queue.shift()
+        if (!fig) return
+        busy = true
+        const text = fig.dataset.text ?? ''
+        const idx = fig.dataset.idx ?? '0'
+        try {
+          const src = await getIllustration(`${article.id}-${idx}`, text, storage.getAiSettings())
+          if (!el.contains(fig)) return
+          fig.classList.remove('loading')
+          fig.innerHTML = `<img class="illo-img" src="${src}" alt="插画" loading="lazy" />`
+        } catch {
+          if (el.contains(fig)) fig.remove() // fall back to plain text on failure
+        } finally {
+          busy = false
+          runNext()
+        }
+      }
+      const io = new IntersectionObserver(
+        (entries) => {
+          for (const e of entries) {
+            if (e.isIntersecting) {
+              const fig = e.target as HTMLElement
+              io.unobserve(fig)
+              if (fig.classList.contains('loading') && !queue.includes(fig)) {
+                queue.push(fig)
+                runNext()
+              }
+            }
+          }
+        },
+        { rootMargin: '300px' },
+      )
+      figs.forEach((f) => io.observe(f))
+    }
 
     function paint() {
       el.innerHTML = `
@@ -83,6 +129,13 @@ export function renderReading(): HTMLElement {
             ${article.paragraphs
               .map(
                 (p, i) => `
+              ${
+                illoOn
+                  ? `<figure class="reader-illo loading" data-idx="${i}" data-text="${escAttr(p)}">
+                       <div class="illo-ph"><span class="illo-spin">🎨</span> 绘本插画生成中…</div>
+                     </figure>`
+                  : ''
+              }
               <p class="reader-para">${splitSentences(p)
                 .map(
                   (s) =>
@@ -150,6 +203,8 @@ export function renderReading(): HTMLElement {
         tts.stopSpeaking()
         startArticleDiscussion(article.id)
       })
+
+      loadIllustrations()
     }
 
     paint()

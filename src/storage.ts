@@ -270,4 +270,11 @@ export const storage = {
   setVoiceAutoRead: (v: boolean) => {
     localStorage.setItem(KEYS.voiceAutoRead, v ? '1' : '0')
   },
+
+  getIllustrate: (): boolean => {
+    return localStorage.getItem('ei_illustrate') !== '0'
+  },
+  setIllustrate: (v: boolean) => {
+    localStorage.setItem('ei_illustrate', v ? '1' : '0')
+  },
 }
