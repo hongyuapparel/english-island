@@ -57,48 +57,33 @@ export function renderReading(): HTMLElement {
     const sentences = article.paragraphs.flatMap((p) => splitSentences(p))
     void prefetchMany(sentences.slice(0, 6), storage.getAiSettings(), 'warm')
 
-    // Lazily draw each paragraph's illustration (one at a time) as it nears view.
+    // Draw every page's illustration right away (a few at a time), so the whole
+    // story is illustrated without waiting for scrolling or taps.
     function loadIllustrations() {
       if (!illoOn) return
-      const figs = Array.from(el.querySelectorAll('.reader-illo.loading')) as HTMLElement[]
-      if (!figs.length) return
-      let busy = false
-      const queue: HTMLElement[] = []
-      const runNext = async () => {
-        if (busy) return
-        const fig = queue.shift()
-        if (!fig) return
-        busy = true
-        const text = fig.dataset.text ?? ''
-        const idx = fig.dataset.idx ?? '0'
+      const imgs = Array.from(el.querySelectorAll('img.pb-img')) as HTMLImageElement[]
+      let i = 0
+      const runOne = async (): Promise<void> => {
+        const img = imgs[i++]
+        if (!img) return
+        const idx = img.dataset.idx ?? '0'
+        const text = article.paragraphs[Number(idx)] ?? ''
         try {
           const src = await getIllustration(`${article.id}-${idx}`, text)
-          if (!el.contains(fig)) return
-          fig.classList.remove('loading')
-          fig.innerHTML = `<img class="illo-img" src="${src}" alt="插画" loading="lazy" />`
-        } catch {
-          if (el.contains(fig)) fig.remove() // fall back to plain text on failure
-        } finally {
-          busy = false
-          runNext()
-        }
-      }
-      const io = new IntersectionObserver(
-        (entries) => {
-          for (const e of entries) {
-            if (e.isIntersecting) {
-              const fig = e.target as HTMLElement
-              io.unobserve(fig)
-              if (fig.classList.contains('loading') && !queue.includes(fig)) {
-                queue.push(fig)
-                runNext()
-              }
-            }
+          if (el.contains(img)) {
+            const page = img.closest('.pb-page')
+            img.onload = () => page?.classList.add('ready')
+            img.onerror = () => page?.classList.add('failed')
+            img.src = src
+            if (img.complete && img.naturalWidth) page?.classList.add('ready')
           }
-        },
-        { rootMargin: '300px' },
-      )
-      figs.forEach((f) => io.observe(f))
+        } catch {
+          img.closest('.pb-page')?.classList.add('failed') // show text on paper
+        }
+        return runOne()
+      }
+      const concurrency = Math.min(3, imgs.length)
+      for (let c = 0; c < concurrency; c++) void runOne()
     }
 
     function paint() {
@@ -125,24 +110,23 @@ export function renderReading(): HTMLElement {
               : `<div class="card voice-warn">此浏览器不支持朗读，建议用 Chrome / Edge</div>`
           }
 
-          <div class="reader-body">
+          <div class="reader-body pb-book ${illoOn ? 'has-illo' : ''}">
             ${article.paragraphs
               .map(
                 (p, i) => `
-              ${
-                illoOn
-                  ? `<figure class="reader-illo loading" data-idx="${i}" data-text="${escAttr(p)}">
-                       <div class="illo-ph"><span class="illo-spin">🎨</span> 绘本插画生成中…</div>
-                     </figure>`
-                  : ''
-              }
-              <p class="reader-para">${splitSentences(p)
-                .map(
-                  (s) =>
-                    `<span class="sentence" data-say="${escAttr(s)}">${esc(s)} </span>`,
-                )
-                .join('')}</p>
-              ${showZh ? `<p class="reader-zh">${esc(article.translation[i] ?? '')}</p>` : ''}`,
+              <section class="pb-page" data-idx="${i}">
+                ${illoOn ? `<img class="pb-img" data-idx="${i}" alt="" />` : ''}
+                <div class="pb-scrim"></div>
+                <div class="pb-text">
+                  <p class="reader-para">${splitSentences(p)
+                    .map(
+                      (s) =>
+                        `<span class="sentence" data-say="${escAttr(s)}">${esc(s)} </span>`,
+                    )
+                    .join('')}</p>
+                  ${showZh ? `<p class="reader-zh">${esc(article.translation[i] ?? '')}</p>` : ''}
+                </div>
+              </section>`,
               )
               .join('')}
           </div>
