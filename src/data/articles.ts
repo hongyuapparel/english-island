@@ -367,6 +367,49 @@ export const ARTICLES: Article[] = [
     artNote:
       'Recurring characters: a small round brown bear cub with big ears and gentle eyes, and a large cozy mama bear in brown slippers. A warm bedroom with a starry night sky through the window. Keep both bears and the cozy bedroom setting identical on every page.',
   },
+  {
+    id: 'baby-i-love-you-fox',
+    title: 'I Love You, Little Fox',
+    titleZh: '我爱你，小狐狸',
+    category: '宝宝·睡前',
+    emoji: '🦊',
+    level: 'A1',
+    words: 110,
+    hook: '一首给小宝宝的睡前情诗：每页一句，柔柔地说"我爱你"。',
+    paragraphs: [
+      `The day is done. The stars appear. Come, little fox, your bed is near.`,
+      `Two little ears, one button nose, ten little paws, and ten little toes.`,
+      `I love your ears. I love your eyes. I love your sleepy little sighs.`,
+      `I love you high. I love you low. I love you wherever you go.`,
+      `When the moon is bright and the night is deep, I'll hold you close as you fall asleep.`,
+      `The owls say hush. The wind sings low. The whole wide world is soft as snow.`,
+      `No matter how far, no matter how high, my love will always find you. That's no lie.`,
+      `Goodnight, little fox. Sweet dreams, my dear. Tomorrow will come, and I'll be here.`,
+    ],
+    translation: [
+      `一天结束了，星星出来了。来吧，小狐狸，你的小床就在身边。`,
+      `两只小耳朵，一个纽扣鼻，十只小爪子，十个小脚趾。`,
+      `我爱你的耳朵，我爱你的眼睛，我爱你困倦的小小叹息。`,
+      `你在高处我爱你，你在低处我爱你，无论你去哪里我都爱你。`,
+      `当月亮明亮、夜色深沉，我会把你抱紧，伴你入睡。`,
+      `猫头鹰轻轻说"嘘"，风儿低低地唱，整个世界柔软得像雪一样。`,
+      `不管多远，不管多高，我的爱永远会找到你。这是真的。`,
+      `晚安，小狐狸。做个好梦，我的宝贝。明天会到来，而我会一直在。`,
+    ],
+    vocab: [
+      { word: 'love', meaning: '爱' },
+      { word: 'moon', meaning: '月亮' },
+      { word: 'paws', meaning: '爪子（paw 的复数）' },
+      { word: 'goodnight', meaning: '晚安' },
+    ],
+    discussion: [
+      `What is your favorite part of bedtime with a little one?`,
+      `Do you have a goodnight phrase you say every single night?`,
+      `Which line of this little book would you whisper first?`,
+    ],
+    artNote:
+      'Recurring characters: the same small watercolor fox cub with big soft eyes and a fluffy white-tipped tail, and a gentle grown-up parent fox. A cosy moonlit den at bedtime, with stars through a small round window and a soft blanket. Keep the foxes and the cosy bedtime den identical and consistent on every page; delicate pen-and-watercolor, very gentle and warm.',
+  },
 ]
 
 export function articleById(id: string): Article | undefined {
